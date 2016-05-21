@@ -1,2 +1,2 @@
 # Projet_PSE
-Space Simulation developed in C and using SDL2
+Space Simulation using C and SDL2
