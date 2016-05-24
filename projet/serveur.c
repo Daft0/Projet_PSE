@@ -12,12 +12,17 @@ int main(int argc, char *argv[]) {
 	/* Initialisation simple */
     	if (SDL_Init(SDL_INIT_VIDEO) != 0 ) {
         	fprintf(stdout,"Échec de l'initialisation de la SDL (%s)\n",SDL_GetError());
-        	return -1;
+        	exit(EXIT_FAILURE);
     	}
-	else {
-       		/* Création de la fenêtre */
-        	SDL_Window* pWindow = NULL;
-        	pWindow = SDL_CreateWindow("Simulation spatiale par calculs distribués",SDL_WINDOWPOS_UNDEFINED,SDL_WINDOWPOS_UNDEFINED,640,480,SDL_WINDOW_SHOWN);
+	/* Création de la fenêtre */
+        SDL_Window* pWindow = NULL;
+        pWindow = SDL_CreateWindow("Simulation spatiale par calculs distribués",SDL_WINDOWPOS_UNDEFINED,SDL_WINDOWPOS_UNDEFINED,640,480,SDL_WINDOW_SHOWN);
+
+	if (pWindow == NULL) {
+		fprintf(stderr,"Erreur de création de la fenêtre: %s\n",SDL_GetError());
+		SDL_Quit();
+		exit(EXIT_FAILURE);
+	}
 
 	int ecoute, canal, ret, mode, ilibre, i;
 	struct sockaddr_in adrEcoute, reception;
@@ -96,20 +101,10 @@ int main(int argc, char *argv[]) {
   	}
 
 	pthread_exit(NULL);
-	if( pWindow )
-        	{
-            	SDL_Delay(3000); /* Attendre trois secondes, que l'utilisateur voit la fenêtre */
-
-            	SDL_DestroyWindow(pWindow);
-        	}
-        	else
-        	{
-            	fprintf(stderr,"Erreur de création de la fenêtre: %s\n",SDL_GetError());
-       		}
+        SDL_DestroyWindow(pWindow);
 	SDL_Quit();
-	}
-
-	exit(EXIT_SUCCESS);
+        	
+	exit(EXIT_FAILURE);
 }
 
 void *traiterRequete(void *arg) {
