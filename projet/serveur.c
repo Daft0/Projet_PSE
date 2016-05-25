@@ -6,6 +6,9 @@
 #define NTHREADS      10
 #define MILLISECONDES 1000
 #define ATTENTE       2000*MILLISECONDES
+#define WIDTH	      1024
+#define HEIGHT	      768
+
 
 int main(int argc, char *argv[]) {
 
@@ -16,13 +19,45 @@ int main(int argc, char *argv[]) {
     	}
 	/* Création de la fenêtre */
         SDL_Window* pWindow = NULL;
-        pWindow = SDL_CreateWindow("Simulation spatiale par calculs distribués",SDL_WINDOWPOS_UNDEFINED,SDL_WINDOWPOS_UNDEFINED,640,480,SDL_WINDOW_SHOWN);
+        pWindow = SDL_CreateWindow("Simulation spatiale par calculs distribués",SDL_WINDOWPOS_UNDEFINED,SDL_WINDOWPOS_UNDEFINED,WIDTH,HEIGHT,SDL_WINDOW_SHOWN);
 
 	if (pWindow == NULL) {
 		fprintf(stderr,"Erreur de création de la fenêtre: %s\n",SDL_GetError());
 		SDL_Quit();
 		exit(EXIT_FAILURE);
 	}
+
+	/* Affichage d'une image de fond en utilisant le GPU de l'ordinateur */
+	SDL_Renderer *pRenderer = SDL_CreateRenderer(pWindow, -1, SDL_RENDERER_ACCELERATED); // Création d'un SDL_Renderer utilisant l'accélération matérielle
+
+	/* SI échec lors de la création du Renderer */
+	if (pRenderer == NULL) {
+		fprintf (stdout, "Echec de creation du renderer (%s)\n", SDL_GetError());
+		SDL_Quit();
+		exit(EXIT_FAILURE);		
+	}
+
+	SDL_Surface *pTitle = SDL_LoadBMP("img/title.bmp"); // Chargement de l'écran titre
+
+	/* Si échec lors du chargement du sprite */
+	if (pTitle == NULL) {
+		fprintf (stdout, "Echec de chargement du sprite de l'ecran titre (%s)\n", SDL_GetError());
+		SDL_Quit();
+		exit(EXIT_FAILURE);
+	}
+
+	SDL_Texture *pTexture = SDL_CreateTextureFromSurface(pRenderer, pTitle); // Préparation du sprite
+
+	if (pTexture == NULL) {
+		fprintf (stdout, "Echec de creation de la texture (%s)\n", SDL_GetError());
+		SDL_Quit();
+		exit(EXIT_FAILURE);
+	}
+
+	SDL_Rect dest = {WIDTH/2 - pTitle->w/2, HEIGHT/2 - pTitle->h/2, pTitle->w, pTitle->h};
+	SDL_RenderCopy(pRenderer, pTexture, NULL, &dest); // Copie du titre grâce à SDL_Renderer
+	
+	SDL_RenderPresent(pRenderer); // Affichage
 
 	int ecoute, canal, ret, mode, ilibre, i;
 	struct sockaddr_in adrEcoute, reception;
@@ -101,10 +136,12 @@ int main(int argc, char *argv[]) {
   	}
 
 	pthread_exit(NULL);
+	SDL_FreeSurface(pTitle); // Libération des ressource pour le sprite du titre
+	SDL_DestroyRenderer(pRenderer); // Libération de la mémoire du Renderer
         SDL_DestroyWindow(pWindow);
 	SDL_Quit();
         	
-	exit(EXIT_FAILURE);
+	exit(EXIT_SUCCESS);
 }
 
 void *traiterRequete(void *arg) {
