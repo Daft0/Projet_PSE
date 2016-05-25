@@ -12,6 +12,29 @@
 
 int main(int argc, char *argv[]) {
 
+	int ecoute, canal, ret, mode, ilibre, i;
+	struct sockaddr_in adrEcoute, reception;
+  	socklen_t receptionlen = sizeof(reception);
+  	short port;
+
+	SDL_Event event;
+	int boucle = 0;
+  
+  	DataSpec cohorte[NTHREADS];
+
+  	if (argc != 2) {
+    		erreur("usage: %s port\n", argv[0]);
+ 	}
+
+	port = (short) atoi(argv[1]);
+
+	/* Message d'intro sur console */
+	printf ("Simulation spatiale par calculs distribués\n");
+	printf ("Par LASSERRE Antoine & MAESTRE Gael\n");
+
+	printf ("Chargement...\n");
+		
+
 	/* Initialisation simple */
     	if (SDL_Init(SDL_INIT_VIDEO) != 0 ) {
         	fprintf(stdout,"Échec de l'initialisation de la SDL (%s)\n",SDL_GetError());
@@ -29,15 +52,17 @@ int main(int argc, char *argv[]) {
 
 	/* Affichage d'une image de fond en utilisant le GPU de l'ordinateur */
 	SDL_Renderer *pRenderer = SDL_CreateRenderer(pWindow, -1, SDL_RENDERER_ACCELERATED); // Création d'un SDL_Renderer utilisant l'accélération matérielle
-
 	/* SI échec lors de la création du Renderer */
 	if (pRenderer == NULL) {
 		fprintf (stdout, "Echec de creation du renderer (%s)\n", SDL_GetError());
 		SDL_Quit();
 		exit(EXIT_FAILURE);		
 	}
+	
 
 	SDL_Surface *pTitle = SDL_LoadBMP("img/title.bmp"); // Chargement de l'écran titre
+	SDL_Surface *pLoad = SDL_LoadBMP("img/chargement.bmp"); // Chargement du logo chargement
+	SDL_Surface *pDone = SDL_LoadBMP("img/done.bmp"); // Chargement du logo chargement
 
 	/* Si échec lors du chargement du sprite */
 	if (pTitle == NULL) {
@@ -45,30 +70,51 @@ int main(int argc, char *argv[]) {
 		SDL_Quit();
 		exit(EXIT_FAILURE);
 	}
+	/* Si échec lors du chargement du sprite */
+	if (pLoad == NULL) {
+		fprintf (stdout, "Echec de chargement du sprite de l'ecran titre (%s)\n", SDL_GetError());
+		SDL_Quit();
+		exit(EXIT_FAILURE);
+	}
+	/* Si échec lors du chargement du sprite */
+	if (pDone == NULL) {
+		fprintf (stdout, "Echec de chargement du sprite de l'ecran titre (%s)\n", SDL_GetError());
+		SDL_Quit();
+		exit(EXIT_FAILURE);
+	}
 
-	SDL_Texture *pTexture = SDL_CreateTextureFromSurface(pRenderer, pTitle); // Préparation du sprite
-
+	SDL_Texture *pTexture = SDL_CreateTextureFromSurface(pRenderer, pTitle); // Préparation du sprite 1
 	if (pTexture == NULL) {
 		fprintf (stdout, "Echec de creation de la texture (%s)\n", SDL_GetError());
 		SDL_Quit();
 		exit(EXIT_FAILURE);
 	}
 
-	SDL_Rect dest = {WIDTH/2 - pTitle->w/2, HEIGHT/2 - pTitle->h/2, pTitle->w, pTitle->h};
+	SDL_Texture *pTexture2 = SDL_CreateTextureFromSurface(pRenderer, pLoad); // Sprite Chargement
+	if (pTexture == NULL) {
+		fprintf (stdout, "Echec de creation de la texture (%s)\n", SDL_GetError());
+		SDL_Quit();
+		exit(EXIT_FAILURE);
+	}
+
+	SDL_Texture *pTexture3 = SDL_CreateTextureFromSurface(pRenderer, pDone); // Sprite Done
+	if (pTexture == NULL) {
+		fprintf (stdout, "Echec de creation de la texture (%s)\n", SDL_GetError());
+		SDL_Quit();
+		exit(EXIT_FAILURE);
+	}
+
+
+
+	SDL_Rect dest = {WIDTH/2 - pTitle->w/2, HEIGHT/2 - pTitle->h/2, pTitle->w, pTitle->h}; // Destination 1 (Fond de base chargement)
+	SDL_Rect dest2 = {WIDTH/2 - pLoad->w/2, HEIGHT/2 - pLoad->h/2, pLoad->w, pLoad->h}; // Logo chargement
+	SDL_Rect dest3 = {WIDTH/2 - pDone->w/2, HEIGHT/2 - pDone->h/2, pDone->w, pDone->h}; // Logo fin de chargement
+
+
 	SDL_RenderCopy(pRenderer, pTexture, NULL, &dest); // Copie du titre grâce à SDL_Renderer
-	
+	SDL_RenderCopy(pRenderer, pTexture2, NULL, &dest2); // Copie du chargement grâce à SDL_Renderer
+
 	SDL_RenderPresent(pRenderer); // Affichage
-
-	int ecoute, canal, ret, mode, ilibre, i;
-	struct sockaddr_in adrEcoute, reception;
-  	socklen_t receptionlen = sizeof(reception);
-  	short port;
-  
-  	DataSpec cohorte[NTHREADS];
-
-  	if (argc != 2) {
-    		erreur("usage: %s port\n", argv[0]);
- 	 }
 
   	mode = O_WRONLY|O_APPEND|O_CREAT;
   	journal = open("journal.log", mode, 0660);
@@ -88,8 +134,6 @@ int main(int argc, char *argv[]) {
       			erreur_IO("pthread_create");
     		}
   	}
-
-  	port = (short) atoi(argv[1]);
   
   	printf("%s: creating a socket\n", CMD);
   	ecoute = socket (AF_INET, SOCK_STREAM, 0);
@@ -111,6 +155,34 @@ int main(int argc, char *argv[]) {
   	if (ret < 0) {
     		erreur_IO("listen");
   	}
+
+	SDL_Delay(3000); // Attendre 3s
+
+	SDL_FreeSurface(pLoad);	// Libération surface Load
+
+	SDL_RenderCopy(pRenderer, pTexture3, NULL, &dest3); // Copie de fin de chargement grâce à SDL_Renderer
+	SDL_RenderPresent(pRenderer); // Affichage
+
+
+	printf ("Chargement termine !\n");
+	printf ("En attente d'un appui sur la touche <s>...\n");
+	/* Attente de l'appui sur s */
+	while (boucle == 0) {
+		while (SDL_PollEvent(&event) && boucle == 0) // Récupération des actions de l'utilisateur
+		{
+    			switch(event.type) {
+        			case SDL_KEYUP: // Relâchement d'une touche
+            			if ( event.key.keysym.sym == SDLK_s ) { // Touche s
+					boucle++;
+					printf ("OK\n\n");
+				}
+            			break;
+    			}
+		}
+	}
+
+
+	// Démarrage simulation
 
   	while (VRAI) {
  
@@ -137,8 +209,9 @@ int main(int argc, char *argv[]) {
 
 	pthread_exit(NULL);
 	SDL_FreeSurface(pTitle); // Libération des ressource pour le sprite du titre
+	SDL_FreeSurface(pDone);	// Idem chargement
 	SDL_DestroyRenderer(pRenderer); // Libération de la mémoire du Renderer
-        SDL_DestroyWindow(pWindow);
+        SDL_DestroyWindow(pWindow); // Destruction de la fenêtre
 	SDL_Quit();
         	
 	exit(EXIT_SUCCESS);
