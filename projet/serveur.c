@@ -32,14 +32,16 @@ int main(int argc, char *argv[]) {
 	printf ("Simulation spatiale par calculs distribués\n");
 	printf ("Par LASSERRE Antoine & MAESTRE Gael\n");
 
-	printf ("Chargement...\n");
+	printf ("Chargement :\n");
 		
 
+	printf ("Initialisation de la SDL...\n");
 	/* Initialisation simple */
     	if (SDL_Init(SDL_INIT_VIDEO) != 0 ) {
         	fprintf(stdout,"Échec de l'initialisation de la SDL (%s)\n",SDL_GetError());
         	exit(EXIT_FAILURE);
     	}
+	printf ("Creation de la fenetre...\n");
 	/* Création de la fenêtre */
         SDL_Window* pWindow = NULL;
         pWindow = SDL_CreateWindow("Simulation spatiale par calculs distribués",SDL_WINDOWPOS_UNDEFINED,SDL_WINDOWPOS_UNDEFINED,WIDTH,HEIGHT,SDL_WINDOW_SHOWN);
@@ -50,6 +52,7 @@ int main(int argc, char *argv[]) {
 		exit(EXIT_FAILURE);
 	}
 
+	printf ("Creation du renderer...\n");
 	/* Affichage d'une image de fond en utilisant le GPU de l'ordinateur */
 	SDL_Renderer *pRenderer = SDL_CreateRenderer(pWindow, -1, SDL_RENDERER_ACCELERATED); // Création d'un SDL_Renderer utilisant l'accélération matérielle
 	/* SI échec lors de la création du Renderer */
@@ -59,7 +62,7 @@ int main(int argc, char *argv[]) {
 		exit(EXIT_FAILURE);		
 	}
 	
-
+	printf ("Chargement des textures...\n");
 	SDL_Surface *pTitle = SDL_LoadBMP("img/title.bmp"); // Chargement de l'écran titre
 	SDL_Surface *pLoad = SDL_LoadBMP("img/chargement.bmp"); // Chargement du logo chargement
 	SDL_Surface *pDone = SDL_LoadBMP("img/done.bmp"); // Chargement du logo chargement
@@ -83,6 +86,7 @@ int main(int argc, char *argv[]) {
 		exit(EXIT_FAILURE);
 	}
 
+	printf ("Traitement des textures...\n");
 	SDL_Texture *pTexture = SDL_CreateTextureFromSurface(pRenderer, pTitle); // Préparation du sprite 1
 	if (pTexture == NULL) {
 		fprintf (stdout, "Echec de creation de la texture (%s)\n", SDL_GetError());
@@ -105,23 +109,25 @@ int main(int argc, char *argv[]) {
 	}
 
 
-
+	printf ("Preparation de l'affichage...\n");
 	SDL_Rect dest = {WIDTH/2 - pTitle->w/2, HEIGHT/2 - pTitle->h/2, pTitle->w, pTitle->h}; // Destination 1 (Fond de base chargement)
 	SDL_Rect dest2 = {WIDTH/2 - pLoad->w/2, HEIGHT/2 - pLoad->h/2, pLoad->w, pLoad->h}; // Logo chargement
 	SDL_Rect dest3 = {WIDTH/2 - pDone->w/2, HEIGHT/2 - pDone->h/2, pDone->w, pDone->h}; // Logo fin de chargement
 
-
 	SDL_RenderCopy(pRenderer, pTexture, NULL, &dest); // Copie du titre grâce à SDL_Renderer
 	SDL_RenderCopy(pRenderer, pTexture2, NULL, &dest2); // Copie du chargement grâce à SDL_Renderer
 
+	printf ("Affichage...\n");
 	SDL_RenderPresent(pRenderer); // Affichage
 
+	printf ("Preparation du journal...\n");
   	mode = O_WRONLY|O_APPEND|O_CREAT;
   	journal = open("journal.log", mode, 0660);
   	if (journal == -1) {
     		erreur_IO("open journal");
   	}
 
+	printf ("Initialisation cohorte...\n");
   	/* initialisation cohorte */
   	for (i=0; i<NTHREADS; i++) {
     		cohorte[i].tid = i;
@@ -135,7 +141,7 @@ int main(int argc, char *argv[]) {
     		}
   	}
   
-  	printf("%s: creating a socket\n", CMD);
+  	printf("Creation d'un socket...\n");
   	ecoute = socket (AF_INET, SOCK_STREAM, 0);
   	if (ecoute < 0) {
     		erreur_IO("socket");
@@ -150,7 +156,7 @@ int main(int argc, char *argv[]) {
     		erreur_IO("bind");
   	}
   
-  	printf("%s: listening to socket\n", CMD);
+  	printf ("Ecoute...\n");
   	ret = listen (ecoute, 20);
   	if (ret < 0) {
     		erreur_IO("listen");
