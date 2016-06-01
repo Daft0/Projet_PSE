@@ -8,6 +8,8 @@ typedef struct planete{
 	struct planete * suivant;
 }Planete;
 
-typedef struct teteFilePlanete{
-	Planete * premierElem;
-}
+//typedef struct teteFilePlanete{
+//	Planete * premierElem;
+//}
+
+#endif /* DATA_STRUCT_H */

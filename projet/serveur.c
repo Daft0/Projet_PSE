@@ -10,6 +10,7 @@
 #define HEIGHT	      768
 
 int nbClient = 0;
+int simulationStart = 0;
 
 int main(int argc, char *argv[]) {
 
@@ -190,9 +191,6 @@ int main(int argc, char *argv[]) {
 		}
 	}
 
-
-	// Démarrage simulation
-
   	while (VRAI) {
  
     	printf("%s: waiting to a connection\n", CMD);
@@ -216,6 +214,27 @@ int main(int argc, char *argv[]) {
     		printf("%s: worker %d choisi\n", CMD, ilibre);
 		nbClient++;
 		printf ("Nombre de clients : %d\n", nbClient);
+		if (nbClient >= 2) {
+			printf ("Demarrage de la simulation\n\n");
+			simulationStart++;
+			/*
+			* Etapes :
+			* 1) Le serveur envoie la taille du tableau de structure à allouer
+			* 2) Le client acq
+			* 3) Le serveur envoie le tableau global
+			* 4) Le client acq
+			* 5) Le serveur envoie la taille du tableau de structure à allouer
+			* 6) Le client acq
+			* 7) Le serveur envoie le tableau fractionné
+			* 8) Le client calcul, le serveur attend
+			* 9) Dès que les réponses sont arrivées, le serveur rassemble
+			* 10) Le serveur affiche les infos
+			* 11) Retour en 1)
+			*/
+		}
+		else {
+			printf ("Le nombre de clients n'est pas suffisant pour commencer la simulation\n");
+		}
   	}
 
 	pthread_exit(NULL);
@@ -252,8 +271,27 @@ void *traiterRequete(void *arg) {
   	mode = O_WRONLY|O_APPEND|O_CREAT|O_TRUNC;
 
   	while (VRAI) {
+		printf ("Attente du debut de la simulation...\n");
+		while (simulationStart == 0);
+		printf ("Worker %d : La simulation demarre !\n\n", data->tid);
+		/*
+		* Etapes :
+		* 1) Le serveur envoie la taille du tableau de structure à allouer
+		* 2) Le client acq
+		* 3) Le serveur envoie le tableau global
+		* 4) Le client acq
+		* 5) Le serveur envoie la taille du tableau de structure à allouer
+		* 6) Le client acq
+		* 7) Le serveur envoie le tableau fractionné
+		* 8) Le client calcul, le serveur attend
+		* 9) Dès que les réponses sont arrivées, le serveur rassemble
+		* 10) Le serveur affiche les infos
+		* 11) Retour en 1)
+		*/
+		
+		/*
     		printf("worker %d: attente canal.\n", data->tid);
-    		/* attente canal */
+    		//attente canal
     		sem_wait(&data->sem);
     		data->libre = FAUX;
     		printf("worker %d: lecture canal %d.\n", data->tid, data->canal);
@@ -270,10 +308,10 @@ void *traiterRequete(void *arg) {
 	      			arret = VRAI;
       			}
       			else if (strcmp(texte, "calc") == 0) {
-	     		/*
-	     		write(data->canal, &fun, sizeof(corps));
-	      		read(data->canal, &fun, sizeof(corps));
-	      		printf ("<%d>, <%d>, %d>\n", fun.posx, fun.posy, fun.vitesse);*/
+	     		
+	     		//write(data->canal, &fun, sizeof(corps));
+	      		//read(data->canal, &fun, sizeof(corps));
+	      		//printf ("<%d>, <%d>, %d>\n", fun.posx, fun.posy, fun.vitesse);
 			write(data->canal, tab, sizeof(tab));
       			}
 			else if (strcmp(texte, "nbClient") == 0) {
@@ -290,7 +328,11 @@ void *traiterRequete(void *arg) {
         			erreur_IO("ecrireLigne");
       			}
     		}
+		*/
 
+		while(1);
+
+		printf ("La simulation est terminee !\n");
     		if (close(data->canal) == -1) {
       			erreur_IO("close");
    		 }
