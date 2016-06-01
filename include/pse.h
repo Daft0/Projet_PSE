@@ -28,7 +28,7 @@
 #include "datathread.h"
 #include "msgbox.h"
 #include "msg.h"
-#include "data_struct.h"
+#include "ph.h"
 
 #define FAUX	0
 #define VRAI	1

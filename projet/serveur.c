@@ -2,15 +2,19 @@
 #include "ph.h"
 #include <SDL2/SDL.h>
 
-#define CMD           "serveur"
-#define NTHREADS      10
-#define MILLISECONDES 1000
-#define ATTENTE       2000*MILLISECONDES
-#define WIDTH	      1024
-#define HEIGHT	      768
+#define CMD            "serveur"
+#define NTHREADS       10
+#define MILLISECONDES  1000
+#define ATTENTE        2000*MILLISECONDES
+#define WIDTH	       1024
+#define HEIGHT	       768
+#define TAILLE_GLOBALE 5
 
 int nbClient = 0;
 int simulationStart = 0;
+corps planete[TAILLE_GLOBALE];
+
+pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
 int main(int argc, char *argv[]) {
 
@@ -24,7 +28,6 @@ int main(int argc, char *argv[]) {
   
   	DataSpec cohorte[NTHREADS];
 
-	
 
   	if (argc != 2) {
     		erreur("usage: %s port\n", argv[0]);
@@ -35,6 +38,7 @@ int main(int argc, char *argv[]) {
 	/* Message d'intro sur console */
 	printf ("Simulation spatiale par calculs distribués\n");
 	printf ("Par LASSERRE Antoine & MAESTRE Gael\n");
+	printf ("SERVEUR\n");
 
 	printf ("Chargement :\n");
 		
@@ -166,7 +170,6 @@ int main(int argc, char *argv[]) {
     		erreur_IO("listen");
   	}
 
-	SDL_Delay(3000); // Attendre 3s
 
 	SDL_FreeSurface(pLoad);	// Libération surface Load
 
@@ -192,50 +195,54 @@ int main(int argc, char *argv[]) {
 	}
 
   	while (VRAI) {
+
+	// Simulation affichage
  
-    	printf("%s: waiting to a connection\n", CMD);
-    	canal = accept(ecoute, (struct sockaddr *) &reception, &receptionlen);
-    	if (canal < 0) {
-      		erreur_IO("accept");
-    	}
-    	printf("%s: adr %s, port %hu\n", CMD,
-      	stringIP(ntohl(reception.sin_addr.s_addr)), ntohs(reception.sin_port));
+	if (simulationStart == 0) {
+    		printf("%s: waiting to a connection\n", CMD);
+    		canal = accept(ecoute, (struct sockaddr *) &reception, &receptionlen);
+    		if (canal < 0) {
+      			erreur_IO("accept");
+    		}
+    		printf("%s: adr %s, port %hu\n", CMD,
+      		stringIP(ntohl(reception.sin_addr.s_addr)), ntohs(reception.sin_port));
 
-    	ilibre = NTHREADS;
-    	while (ilibre == NTHREADS) {
-      		for (ilibre=0; ilibre<NTHREADS; ilibre++)
-        		if (cohorte[ilibre].libre) break;
-      			printf("serveur: %d\n", ilibre);
-      			if (ilibre == NTHREADS) usleep(ATTENTE);
-   		}
+    		ilibre = NTHREADS;
+    		while (ilibre == NTHREADS) {
+      			for (ilibre=0; ilibre<NTHREADS; ilibre++)
+        			if (cohorte[ilibre].libre) break;
+      				printf("serveur: %d\n", ilibre);
+      				if (ilibre == NTHREADS) usleep(ATTENTE);
+   			}
 
-    		cohorte[ilibre].canal = canal;
-    		sem_post(&cohorte[ilibre].sem);
-    		printf("%s: worker %d choisi\n", CMD, ilibre);
-		nbClient++;
-		printf ("Nombre de clients : %d\n", nbClient);
-		if (nbClient >= 2) {
-			printf ("Demarrage de la simulation\n\n");
-			simulationStart++;
-			/*
-			* Etapes :
-			* 1) Le serveur envoie la taille du tableau de structure à allouer
-			* 2) Le client acq
-			* 3) Le serveur envoie le tableau global
-			* 4) Le client acq
-			* 5) Le serveur envoie la taille du tableau de structure à allouer
-			* 6) Le client acq
-			* 7) Le serveur envoie le tableau fractionné
-			* 8) Le client calcul, le serveur attend
-			* 9) Dès que les réponses sont arrivées, le serveur rassemble
-			* 10) Le serveur affiche les infos
-			* 11) Retour en 1)
-			*/
-		}
-		else {
-			printf ("Le nombre de clients n'est pas suffisant pour commencer la simulation\n");
-		}
-  	}
+    			cohorte[ilibre].canal = canal;
+    			sem_post(&cohorte[ilibre].sem);
+    			printf("%s: worker %d choisi\n", CMD, ilibre);
+			nbClient++;
+			printf ("Nombre de clients : %d\n", nbClient);
+			if (nbClient >= 2) {
+				printf ("Demarrage de la simulation\n\n");
+				simulationStart++;
+				/*
+				* Etapes :
+				* 1) Le serveur envoie la taille du tableau de structure à allouer
+				* 2) Le client acq
+				* 3) Le serveur envoie le tableau global
+				* 4) Le client acq
+				* 5) Le serveur envoie la taille du tableau de structure à allouer
+				* 6) Le client acq
+				* 7) Le serveur envoie le tableau fractionné
+				* 8) Le client calcul, le serveur attend
+				* 9) Dès que les réponses sont arrivées, le serveur rassemble
+				* 10) Le serveur affiche les infos
+				* 11) Retour en 1)
+				*/
+			}
+			else {
+				printf ("Le nombre de clients n'est pas suffisant pour commencer la simulation\n");
+			}
+  		}
+	}
 
 	pthread_exit(NULL);
 	SDL_FreeSurface(pTitle); // Libération des ressource pour le sprite du titre
@@ -249,31 +256,22 @@ int main(int argc, char *argv[]) {
 
 void *traiterRequete(void *arg) {
   	DataSpec * data = (DataSpec *) arg;
-  	int arret = FAUX, nblus, mode;
-  	char texte[LIGNE_MAX];
-  	corps planete1;
-  	corps planete2;
-  	corps tab[2];
+  	//int arret = FAUX, nblus;
+	//int mode;
+  	//char texte[LIGNE_MAX];
+	int tailleTot = 5;
+	int acq = 0;
 
-  	tab[0] = planete1;
-  	tab[1] = planete2;
-
-  	tab[0].posx = 32;
-  	tab[0].posy = 23;
-  	tab[0].vitesse = 6;
-	tab[0].type_corps = 1;
-
-  	tab[1].posx = 78;
-  	tab[1].posy = 87;
-  	tab[1].vitesse = 3;
-	tab[1].type_corps = 2;
+	
   
-  	mode = O_WRONLY|O_APPEND|O_CREAT|O_TRUNC;
+  	//mode = O_WRONLY|O_APPEND|O_CREAT|O_TRUNC;
 
   	while (VRAI) {
-		printf ("Attente du debut de la simulation...\n");
-		while (simulationStart == 0);
-		printf ("Worker %d : La simulation demarre !\n\n", data->tid);
+		sem_wait(&data->sem);
+		data->libre = FAUX;
+    		//printf("worker %d: lecture canal %d.\n", data->tid, data->canal);
+		while(simulationStart == 0);
+		printf ("Worker %d : La simulation demarre !\n", data->tid);
 		/*
 		* Etapes :
 		* 1) Le serveur envoie la taille du tableau de structure à allouer
@@ -288,6 +286,75 @@ void *traiterRequete(void *arg) {
 		* 10) Le serveur affiche les infos
 		* 11) Retour en 1)
 		*/
+
+
+		// 1) Le serveur envoie la taille du tableau de structure à allouer
+		if (pthread_mutex_lock(&mutex) != 0) {
+    			erreur_IO("pthread_mutex_lock");
+  		}
+
+		printf ("Worker %d : Transmission de la taille de la structure...\n", data->tid);
+		write(data->canal, &tailleTot, sizeof(int));
+    
+  		if (pthread_mutex_unlock(&mutex) != 0) {
+    			erreur_IO("pthread_mutex_unlock");
+ 		}
+
+		// 2) Le client acq	
+		if (pthread_mutex_lock(&mutex) != 0) {
+    			erreur_IO("pthread_mutex_lock");
+  		}
+		acq = 0;
+		printf ("Worker %d : Attente de l'acq...\n", data->tid);
+
+		while (acq == 0) {
+		read(data->canal, &acq, sizeof(int));
+		}
+		acq = 0;
+  		if (pthread_mutex_unlock(&mutex) != 0) {
+    			erreur_IO("pthread_mutex_unlock");
+ 		}
+		printf ("Worker %d : Acq OK\n", data->tid);
+
+		// 3) Le serveur envoie le tableau de structure
+		if (pthread_mutex_lock(&mutex) != 0) {
+    			erreur_IO("pthread_mutex_lock");
+  		}
+
+		printf ("Worker %d : Transmission du tableau global...\n", data->tid);
+		planete[0].posx = 57;
+		write(data->canal, &planete, TAILLE_GLOBALE*sizeof(corps));
+    
+  		if (pthread_mutex_unlock(&mutex) != 0) {
+    			erreur_IO("pthread_mutex_unlock");
+ 		}
+
+		// 4) Le client acq	
+		if (pthread_mutex_lock(&mutex) != 0) {
+    			erreur_IO("pthread_mutex_lock");
+  		}
+		acq = 0;
+		printf ("Worker %d : Attente de l'acq2...\n", data->tid);
+
+		while (acq == 0) {
+		read(data->canal, &acq, sizeof(int));
+		}
+		acq = 0;
+  		if (pthread_mutex_unlock(&mutex) != 0) {
+    			erreur_IO("pthread_mutex_unlock");
+ 		}
+		printf ("Worker %d : Acq2 OK\n", data->tid);
+
+
+
+		sleep(5);
+
+		exit(EXIT_SUCCESS);
+
+
+
+
+
 		
 		/*
     		printf("worker %d: attente canal.\n", data->tid);

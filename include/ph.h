@@ -6,6 +6,10 @@ typedef struct {
 	int posy;
 	float vitesse;
 	int type_corps;
+	float coefMasse;
+	int expMasse;
+	float coefDistance;
+	int expDistance;
 }corps;
 
 int journal;
