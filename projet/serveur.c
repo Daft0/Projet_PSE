@@ -9,6 +9,7 @@
 #define WIDTH	      1024
 #define HEIGHT	      768
 
+int nbClient = 0;
 
 int main(int argc, char *argv[]) {
 
@@ -21,6 +22,8 @@ int main(int argc, char *argv[]) {
 	int boucle = 0;
   
   	DataSpec cohorte[NTHREADS];
+
+	
 
   	if (argc != 2) {
     		erreur("usage: %s port\n", argv[0]);
@@ -211,6 +214,8 @@ int main(int argc, char *argv[]) {
     		cohorte[ilibre].canal = canal;
     		sem_post(&cohorte[ilibre].sem);
     		printf("%s: worker %d choisi\n", CMD, ilibre);
+		nbClient++;
+		printf ("Nombre de clients : %d\n", nbClient);
   	}
 
 	pthread_exit(NULL);
@@ -261,6 +266,7 @@ void *traiterRequete(void *arg) {
       			}
       			if (strcmp(texte, "fin") == 0) {
 	     			printf("worker %d: deconnexion demandee.\n", data->tid);
+				nbClient--;
 	      			arret = VRAI;
       			}
       			else if (strcmp(texte, "calc") == 0) {
@@ -270,6 +276,9 @@ void *traiterRequete(void *arg) {
 	      		printf ("<%d>, <%d>, %d>\n", fun.posx, fun.posy, fun.vitesse);*/
 			write(data->canal, tab, sizeof(tab));
       			}
+			else if (strcmp(texte, "nbClient") == 0) {
+				printf ("Il y a actuellement %d clients\n", nbClient);
+			}
       			else if (strcmp(texte, "init") == 0) {
 	      			printf("worker %d: remise a zero du journal demandee.\n", data->tid);
         			journal = remiseAZeroLog(journal, mode);
@@ -301,4 +310,11 @@ int remiseAZeroLog(int fd, int mode) {
    		 erreur_IO("open trunc log");
   	}
   	return newFd;
+}
+
+void init_Simulation() {
+	/*
+	* 1) Déclaration de 10 corps (10 structures)
+	*/
+
 }
