@@ -232,8 +232,8 @@ int main(int argc, char *argv[]) {
 				* 5) Le serveur envoie la taille du tableau de structure à allouer
 				* 6) Le client acq
 				* 7) Le serveur envoie le tableau fractionné
-				* 8) Le client calcul, le serveur attend
-				* 9) Dès que les réponses sont arrivées, le serveur rassemble
+				* 8) Le client calcul et acq
+				* 9) Le client envoie les données et le serveur rassemble
 				* 10) Le serveur affiche les infos
 				* 11) Retour en 1)
 				*/
@@ -262,6 +262,9 @@ void *traiterRequete(void *arg) {
 	int tailleTot = 5;
 	int acq = 0;
 	int ecart = 0;
+	corps *tab; // Tableau partiel
+	corps *tabTemp; // Tableau temporaire
+	int i = 0;
 
 	
   
@@ -282,8 +285,8 @@ void *traiterRequete(void *arg) {
 		* 5) Le serveur envoie la taille du tableau de structure à allouer
 		* 6) Le client acq
 		* 7) Le serveur envoie le tableau fractionné
-		* 8) Le client calcul, le serveur attend
-		* 9) Dès que les réponses sont arrivées, le serveur rassemble
+		* 8) Le client calcul et acq
+		* 9) Le client envoie les données et le serveur rassemble
 		* 10) Le serveur affiche les infos
 		* 11) Retour en 1)
 		*/
@@ -353,20 +356,20 @@ void *traiterRequete(void *arg) {
 		* On calcul le nombre de cases pour chaque client
 		* LE NOMBRE DE PLANETES DOIT ETRE PAIR !
 		*/
-		printf ("Preparation des valeurs...\n");
+		printf ("Worker %d : Preparation des valeurs...\n", data->tid);
 		if (pthread_mutex_lock(&mutex) != 0) {
     			erreur_IO("pthread_mutex_lock");
   		}
 		ecart = TAILLE_GLOBALE/nbClient;
 		if (nbClient%2 == 1 && data->tid == nbClient-1) { // Si nombre de client impair, le dernier client prend un élément de plus
-			printf ("Worker %d est le dernier\n", data->tid);
+			printf ("Worker %d : est le dernier\n", data->tid);
 			ecart += TAILLE_GLOBALE-ecart*nbClient;
 			printf ("Il a %d a faire\n", ecart);
 			
 		}
 		printf ("%d\n", ecart);
 		
-		printf ("Transmission de la taille de la structure...\n");
+		printf ("Worker %d : Transmission de la taille de la structure...\n", data->tid);
 		write(data->canal, &ecart, sizeof(int));
 		
 		if (pthread_mutex_unlock(&mutex) != 0) {
@@ -388,9 +391,57 @@ void *traiterRequete(void *arg) {
     			erreur_IO("pthread_mutex_unlock");
  		}
 		printf ("Worker %d : Acq3 OK\n", data->tid);
-		
 
+		// 7) Le serveur envoie le tableau fractionné
+		printf ("Worker %d : Transmission du tableau partiel...\n", data->tid);
+		if (pthread_mutex_lock(&mutex) != 0) {
+    			erreur_IO("pthread_mutex_lock");
+  		}
 
+		tab = (corps*) calloc(ecart, sizeof(corps)); // Attribution de l'espace
+		for (i = 0 ; i < ecart ; i++) {
+		tab[i] = planete[i+ecart*nbClient]; // Sauvegarde des valeurs
+		}
+		write(data->canal, &tab, ecart*sizeof(corps)); // Transfert
+
+		if (pthread_mutex_unlock(&mutex) != 0) {
+    			erreur_IO("pthread_mutex_unlock");
+ 		}
+
+		// 8) Le client calcul et acq
+		if (pthread_mutex_lock(&mutex) != 0) {
+    			erreur_IO("pthread_mutex_lock");
+  		}
+		acq = 0;
+		printf ("Worker %d : Attente de l'acq4...\n", data->tid);
+
+		while (acq == 0) {
+		read(data->canal, &acq, sizeof(int));
+		}
+		acq = 0;
+  		if (pthread_mutex_unlock(&mutex) != 0) {
+    			erreur_IO("pthread_mutex_unlock");
+ 		}
+		printf ("Worker %d : Acq4 OK\n", data->tid);
+
+		//  9) Le client envoie les données et le serveur rassemble
+		printf ("Worker %d : Reception des donnees...\n", data->tid);
+		if (pthread_mutex_lock(&mutex) != 0) {
+    			erreur_IO("pthread_mutex_lock");
+  		}
+
+		tabTemp = (corps*) calloc(ecart, sizeof(corps)); // Attribution de l'espace
+		while (tabTemp[0].posx == 0) { // Lecture des données : tant qu'il n'y a pas de modification
+			read(data->canal, tabTemp, ecart*sizeof(corps));
+		}
+		for (i = 0 ; i < ecart ; i++) {
+		tab[i+ecart*nbClient] = tabTemp[i]; // Sauvegarde des valeurs
+		}
+
+		if (pthread_mutex_unlock(&mutex) != 0) {
+    			erreur_IO("pthread_mutex_unlock");
+ 		}
+		printf ("Worker %d : Reception terminee !\n", data->tid);
 
 		sleep(5);
 

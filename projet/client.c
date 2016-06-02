@@ -48,7 +48,7 @@ int main(int argc, char *argv[]) {
 
 	printf ("Pret pour la simulation\n");
 	// 1) Réception de la taille du tableau de structure à allouer
-	printf ("Reception de la taille du tableau global\n");
+	printf ("Reception de la taille du tableau global...\n");
 	while (tailleTot == 0) {
 		read(sock, &tailleTot, sizeof(int));
 	}
@@ -95,6 +95,27 @@ int main(int argc, char *argv[]) {
 	acq = 1; // Mise à 1 de la variable
 	write(sock, &acq, sizeof(int)); // Transmission
 	acq = 0; // Remise à 0 de la variable
+
+	// 7) Réception du tableau partiel
+	printf ("Reception du tableau partiel...\n");
+	while (tabPart[0].posx == 0) {
+		read(sock, tabPart, taillePart*sizeof(corps));
+	}
+	printf ("C'est bon\n\n");
+
+	// 8) Le client calcul et acq
+	printf ("Calculs en cours...\n");
+	// CALCULS
+	printf ("Calculs termines !\n");
+	printf ("Acq...\n\n");
+	acq = 1; // Mise à 1 de la variable
+	write(sock, &acq, sizeof(int)); // Transmission
+	acq = 0; // Remise à 0 de la variable
+
+	//  9) Le client envoie les données et le serveur rassemble
+	printf ("Transmission des donnees...\n");
+	write(sock, tabPart, taillePart*sizeof(corps));
+	printf ("C'est bon\n\n");
 	
 	
 	
