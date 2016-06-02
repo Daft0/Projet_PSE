@@ -12,9 +12,21 @@
 
 int nbClient = 0;
 int simulationStart = 0;
+int affichageStart = 0;
 corps planete[TAILLE_GLOBALE];
 
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+
+// Variables globales de la SDL
+SDL_Window* pWindow = NULL;
+SDL_Renderer *pRenderer;
+SDL_Surface *pTitle;
+SDL_Surface *pLoad;
+SDL_Surface *pDone;
+SDL_Texture *pTexture;
+SDL_Texture *pTexture2;
+SDL_Texture *pTexture3;
+
 
 int main(int argc, char *argv[]) {
 
@@ -51,7 +63,6 @@ int main(int argc, char *argv[]) {
     	}
 	printf ("Creation de la fenetre...\n");
 	/* Création de la fenêtre */
-        SDL_Window* pWindow = NULL;
         pWindow = SDL_CreateWindow("Simulation spatiale par calculs distribués",SDL_WINDOWPOS_UNDEFINED,SDL_WINDOWPOS_UNDEFINED,WIDTH,HEIGHT,SDL_WINDOW_SHOWN);
 
 	if (pWindow == NULL) {
@@ -62,7 +73,7 @@ int main(int argc, char *argv[]) {
 
 	printf ("Creation du renderer...\n");
 	/* Affichage d'une image de fond en utilisant le GPU de l'ordinateur */
-	SDL_Renderer *pRenderer = SDL_CreateRenderer(pWindow, -1, SDL_RENDERER_ACCELERATED); // Création d'un SDL_Renderer utilisant l'accélération matérielle
+	pRenderer = SDL_CreateRenderer(pWindow, -1, SDL_RENDERER_ACCELERATED); // Création d'un SDL_Renderer utilisant l'accélération matérielle
 	/* SI échec lors de la création du Renderer */
 	if (pRenderer == NULL) {
 		fprintf (stdout, "Echec de creation du renderer (%s)\n", SDL_GetError());
@@ -71,9 +82,9 @@ int main(int argc, char *argv[]) {
 	}
 	
 	printf ("Chargement des textures...\n");
-	SDL_Surface *pTitle = SDL_LoadBMP("img/title.bmp"); // Chargement de l'écran titre
-	SDL_Surface *pLoad = SDL_LoadBMP("img/chargement.bmp"); // Chargement du logo chargement
-	SDL_Surface *pDone = SDL_LoadBMP("img/done.bmp"); // Chargement du logo chargement
+	pTitle = SDL_LoadBMP("img/title.bmp"); // Chargement de l'écran titre
+	pLoad = SDL_LoadBMP("img/chargement.bmp"); // Chargement du logo chargement
+	pDone = SDL_LoadBMP("img/done.bmp"); // Chargement du logo chargement
 
 	/* Si échec lors du chargement du sprite */
 	if (pTitle == NULL) {
@@ -95,21 +106,21 @@ int main(int argc, char *argv[]) {
 	}
 
 	printf ("Traitement des textures...\n");
-	SDL_Texture *pTexture = SDL_CreateTextureFromSurface(pRenderer, pTitle); // Préparation du sprite 1
+	pTexture = SDL_CreateTextureFromSurface(pRenderer, pTitle); // Préparation du sprite 1
 	if (pTexture == NULL) {
 		fprintf (stdout, "Echec de creation de la texture (%s)\n", SDL_GetError());
 		SDL_Quit();
 		exit(EXIT_FAILURE);
 	}
 
-	SDL_Texture *pTexture2 = SDL_CreateTextureFromSurface(pRenderer, pLoad); // Sprite Chargement
+	pTexture2 = SDL_CreateTextureFromSurface(pRenderer, pLoad); // Sprite Chargement
 	if (pTexture == NULL) {
 		fprintf (stdout, "Echec de creation de la texture (%s)\n", SDL_GetError());
 		SDL_Quit();
 		exit(EXIT_FAILURE);
 	}
 
-	SDL_Texture *pTexture3 = SDL_CreateTextureFromSurface(pRenderer, pDone); // Sprite Done
+	pTexture3 = SDL_CreateTextureFromSurface(pRenderer, pDone); // Sprite Done
 	if (pTexture == NULL) {
 		fprintf (stdout, "Echec de creation de la texture (%s)\n", SDL_GetError());
 		SDL_Quit();
@@ -199,6 +210,11 @@ int main(int argc, char *argv[]) {
 	// Simulation affichage
  
 	if (simulationStart == 0) {
+		if (affichageStart == nbClient) { // Si la simulation est terminée	
+			simulationStart = 0; // Arrêt de la simulation
+			nbClient = 0; // Réinitialisation du nombre de clients
+			affichage(); // Actualisation de l'affichage de la simulation	
+		}
     		printf("%s: waiting to a connection\n", CMD);
     		canal = accept(ecoute, (struct sockaddr *) &reception, &receptionlen);
     		if (canal < 0) {
@@ -443,14 +459,6 @@ void *traiterRequete(void *arg) {
  		}
 		printf ("Worker %d : Reception terminee !\n", data->tid);
 
-		sleep(5);
-
-		exit(EXIT_SUCCESS);
-
-
-
-
-
 		
 		/*
     		printf("worker %d: attente canal.\n", data->tid);
@@ -493,7 +501,7 @@ void *traiterRequete(void *arg) {
     		}
 		*/
 
-		while(1);
+		sleep(10); // A supprimer par la suite
 
 		printf ("La simulation est terminee !\n");
     		if (close(data->canal) == -1) {
@@ -517,9 +525,12 @@ int remiseAZeroLog(int fd, int mode) {
   	return newFd;
 }
 
-void init_Simulation() {
+void affichage() {
 	/*
-	* 1) Déclaration de 10 corps (10 structures)
+	* Cette fonction permet de lire les données puis de les afficher
 	*/
+
+
+
 
 }
