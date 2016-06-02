@@ -9,9 +9,11 @@ int main(int argc, char *argv[]) {
   	struct sockaddr_in *sa;
   	//char texte[LIGNE_MAX];
 	int tailleTot = 0;
+	int taillePart = 0;
 	int acq = 0;
 
 	corps *tab; // Déclaration du tableau de structure total
+	corps *tabPart; // Déclaration du tableau de structure partiel
   
   	if (argc != 3) {
    		erreur("usage: %s machine port\n", argv[0]);
@@ -46,6 +48,7 @@ int main(int argc, char *argv[]) {
 
 	printf ("Pret pour la simulation\n");
 	// 1) Réception de la taille du tableau de structure à allouer
+	printf ("Reception de la taille du tableau global\n");
 	while (tailleTot == 0) {
 		read(sock, &tailleTot, sizeof(int));
 	}
@@ -75,6 +78,23 @@ int main(int argc, char *argv[]) {
 	write(sock, &acq, sizeof(int)); // Transmission
 	acq = 0; // Remise à 0 de la variable
 
+	// 5) Réception de la taille du tableau partiel de structure à allouer
+	printf ("Reception de la taille du tableau partiel\n");
+	while (taillePart == 0) {
+		read(sock, &taillePart, sizeof(int));
+	}
+	printf ("Je dois allouer %d octets\n\n", taillePart);
+	
+	// 6) Acq3
+	printf ("Allocation en cours...\n");
+	tabPart = (corps*) calloc(taillePart, sizeof(corps));
+	if (tabPart == NULL) {
+		exit(EXIT_FAILURE);
+	}	
+	printf ("Acq3...\n\n");
+	acq = 1; // Mise à 1 de la variable
+	write(sock, &acq, sizeof(int)); // Transmission
+	acq = 0; // Remise à 0 de la variable
 	
 	
 	
@@ -114,6 +134,7 @@ int main(int argc, char *argv[]) {
     		}
   	}*/
 	free(tab);
+	free(tabPart);
 
   	exit(EXIT_SUCCESS);
 }

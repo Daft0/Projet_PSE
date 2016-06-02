@@ -220,7 +220,7 @@ int main(int argc, char *argv[]) {
     			printf("%s: worker %d choisi\n", CMD, ilibre);
 			nbClient++;
 			printf ("Nombre de clients : %d\n", nbClient);
-			if (nbClient >= 2) {
+			if (nbClient >= 3) {
 				printf ("Demarrage de la simulation\n\n");
 				simulationStart++;
 				/*
@@ -261,6 +261,7 @@ void *traiterRequete(void *arg) {
   	//char texte[LIGNE_MAX];
 	int tailleTot = 5;
 	int acq = 0;
+	int ecart = 0;
 
 	
   
@@ -344,6 +345,50 @@ void *traiterRequete(void *arg) {
     			erreur_IO("pthread_mutex_unlock");
  		}
 		printf ("Worker %d : Acq2 OK\n", data->tid);
+
+		// 5) Le serveur envoie la taille du tableau de structure à allouer
+		/*
+		* On utilise data->tid qui est le numéro du worker
+		* On utilise nbClient qui contient le nombre de clients
+		* On calcul le nombre de cases pour chaque client
+		* LE NOMBRE DE PLANETES DOIT ETRE PAIR !
+		*/
+		printf ("Preparation des valeurs...\n");
+		if (pthread_mutex_lock(&mutex) != 0) {
+    			erreur_IO("pthread_mutex_lock");
+  		}
+		ecart = TAILLE_GLOBALE/nbClient;
+		if (nbClient%2 == 1 && data->tid == nbClient-1) { // Si nombre de client impair, le dernier client prend un élément de plus
+			printf ("Worker %d est le dernier\n", data->tid);
+			ecart += TAILLE_GLOBALE-ecart*nbClient;
+			printf ("Il a %d a faire\n", ecart);
+			
+		}
+		printf ("%d\n", ecart);
+		
+		printf ("Transmission de la taille de la structure...\n");
+		write(data->canal, &ecart, sizeof(int));
+		
+		if (pthread_mutex_unlock(&mutex) != 0) {
+    			erreur_IO("pthread_mutex_unlock");
+ 		}
+
+		// 6) Le client acq
+		if (pthread_mutex_lock(&mutex) != 0) {
+    			erreur_IO("pthread_mutex_lock");
+  		}
+		acq = 0;
+		printf ("Worker %d : Attente de l'acq3...\n", data->tid);
+
+		while (acq == 0) {
+		read(data->canal, &acq, sizeof(int));
+		}
+		acq = 0;
+  		if (pthread_mutex_unlock(&mutex) != 0) {
+    			erreur_IO("pthread_mutex_unlock");
+ 		}
+		printf ("Worker %d : Acq3 OK\n", data->tid);
+		
 
 
 
