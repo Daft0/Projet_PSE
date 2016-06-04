@@ -6,7 +6,7 @@ typedef struct {
 	int posy;
 	float vitessex;
 	float vitessey;
-	int type_corps;
+	int typeCorps;
 	float coefMasse;
 	int expMasse;
 	float coefDistance;
@@ -21,8 +21,11 @@ int remiseAZeroLog(int fd, int mode);
 /* Traite des requêtes */
 void *traiterRequete(void *arg);
 
-/* Initialise la simulation */
+/* Affichage de la simulation */
 void affichage();
+
+/* Initialise les valeurs de la simulation */
+void initSimulation();
 
 
 

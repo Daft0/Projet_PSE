@@ -34,11 +34,14 @@ int main(int argc, char *argv[]) {
 	struct sockaddr_in adrEcoute, reception;
   	socklen_t receptionlen = sizeof(reception);
   	short port;
+	int nbClientSeuil = -1;
 
 	SDL_Event event;
 	int boucle = 0;
   
   	DataSpec cohorte[NTHREADS];
+
+	srand (time (NULL));
 
 
   	if (argc != 2) {
@@ -131,7 +134,7 @@ int main(int argc, char *argv[]) {
 	printf ("Preparation de l'affichage...\n");
 	SDL_Rect dest = {WIDTH/2 - pTitle->w/2, HEIGHT/2 - pTitle->h/2, pTitle->w, pTitle->h}; // Destination 1 (Fond de base chargement)
 	SDL_Rect dest2 = {WIDTH/2 - pLoad->w/2, HEIGHT/2 - pLoad->h/2, pLoad->w, pLoad->h}; // Logo chargement
-	SDL_Rect dest3 = {WIDTH/2 - pDone->w/2, HEIGHT/2 - pDone->h/2, pDone->w, pDone->h}; // Logo fin de chargement
+	SDL_Rect dest3 = {WIDTH/2 - pDone->w/2, HEIGHT/2 - pDone->h/2+40, pDone->w, pDone->h}; // Logo fin de chargement
 
 	SDL_RenderCopy(pRenderer, pTexture, NULL, &dest); // Copie du titre grâce à SDL_Renderer
 	SDL_RenderCopy(pRenderer, pTexture2, NULL, &dest2); // Copie du chargement grâce à SDL_Renderer
@@ -205,16 +208,40 @@ int main(int argc, char *argv[]) {
 		}
 	}
 
-  	while (VRAI) {
+	initSimulation();
+	affichage();
 
-	// Simulation affichage
- 
-	if (simulationStart == 0) {
-		if (affichageStart == nbClient) { // Si la simulation est terminée	
+  	while (VRAI) {
+		while (SDL_PollEvent(&event)) // Récupération des actions de l'utilisateur
+		{
+    			switch(event.type) {
+        			case SDL_KEYUP: // Relâchement d'une touche
+            			if ( event.key.keysym.sym == SDLK_q ) { // Touche s
+					printf ("L'utilisateur souhaite quitter...\n\n");
+					pthread_exit(NULL);
+					SDL_FreeSurface(pTitle); // Libération des ressource pour le sprite du titre
+					SDL_FreeSurface(pDone);	// Idem chargement
+					SDL_DestroyRenderer(pRenderer); // Libération de la mémoire du Renderer
+        				SDL_DestroyWindow(pWindow); // Destruction de la fenêtre
+					SDL_Quit();
+        	
+					exit(EXIT_SUCCESS);				
+				}
+            			break;
+    			}
+		}
+
+		if (affichageStart == nbClientSeuil) { // Si la simulation est terminée	
+			printf ("Simulation terminee\n");
 			simulationStart = 0; // Arrêt de la simulation
 			nbClient = 0; // Réinitialisation du nombre de clients
-			affichage(); // Actualisation de l'affichage de la simulation	
+			affichage(); // Actualisation de l'affichage de la simulation
+			sleep(10);
+			exit(EXIT_SUCCESS);	
 		}
+
+ 
+	if (simulationStart == 0) {
     		printf("%s: waiting to a connection\n", CMD);
     		canal = accept(ecoute, (struct sockaddr *) &reception, &receptionlen);
     		if (canal < 0) {
@@ -239,6 +266,7 @@ int main(int argc, char *argv[]) {
 			if (nbClient >= 3) {
 				printf ("Demarrage de la simulation\n\n");
 				simulationStart++;
+				nbClientSeuil = nbClient;
 				/*
 				* Etapes :
 				* 1) Le serveur envoie la taille du tableau de structure à allouer
@@ -451,7 +479,7 @@ void *traiterRequete(void *arg) {
 			read(data->canal, tabTemp, ecart*sizeof(corps));
 		}
 		for (i = 0 ; i < ecart ; i++) {
-		tab[i+ecart*nbClient] = tabTemp[i]; // Sauvegarde des valeurs
+		planete[i+ecart*nbClient] = tabTemp[i]; // Sauvegarde des valeurs
 		}
 
 		if (pthread_mutex_unlock(&mutex) != 0) {
@@ -501,9 +529,9 @@ void *traiterRequete(void *arg) {
     		}
 		*/
 
-		sleep(10); // A supprimer par la suite
+		affichageStart++;
 
-		printf ("La simulation est terminee !\n");
+		printf ("Worker %d : La simulation est terminee !\n", data->tid);
     		if (close(data->canal) == -1) {
       			erreur_IO("close");
    		 }
@@ -530,7 +558,62 @@ void affichage() {
 	* Cette fonction permet de lire les données puis de les afficher
 	*/
 
+	printf ("Affichage...\n");
+	SDL_SetRenderDrawColor(pRenderer, 0, 0, 0, 255);
+	SDL_RenderClear(pRenderer);
+	
+	SDL_Surface *pSprite;
+	SDL_Texture *pTexture;
+	
+	int i = 0;
+	for (i = 0 ; i < TAILLE_GLOBALE ; i++) {
+		if (planete[i].typeCorps == 0) {
+			pSprite = SDL_LoadBMP("img/sun.bmp"); // Chargement sprite soleil
+		}
+		else {
+			pSprite = SDL_LoadBMP("img/planete.bmp"); // Chargement sprite planete
+		}
+		if (pSprite == NULL) {
+			fprintf (stdout, "Echec de chargement d'un sprite (%s)\n", SDL_GetError());
+			SDL_Quit();
+			exit(EXIT_FAILURE);
+		}
+		pTexture = SDL_CreateTextureFromSurface(pRenderer, pSprite); // Préparation du sprite
+		if (pTexture == NULL) {
+			fprintf (stdout, "Echec de creation de la texture (%s)\n", SDL_GetError());
+			SDL_Quit();
+			exit(EXIT_FAILURE);
+		}
+		SDL_Rect destSprite = {planete[i].posx, planete[i].posy, pSprite->w, pSprite->h}; // Destination
+	
+		SDL_RenderCopy(pRenderer, pTexture, NULL, &destSprite); // Copie de la texture
+		SDL_RenderPresent(pRenderer); // Affichage		
+	}
+	printf ("OK\n");
+}
 
+void initSimulation() {
+	/* Cette fonction permet d'initialiser les corps de la simulation */
+	int i = 1;
+	planete[0].posx = 1024/2; // Initialisation du soleil
+	planete[0].posy = 768/2;
+	planete[0].vitessex = 0;
+	planete[0].vitessey = 0;
+	planete[0].typeCorps = 0;
+	planete[0].coefMasse = 0;
+	planete[0].expMasse = 0;
+	planete[0].coefDistance = 0;
+	planete[0].expDistance = 0;
 
-
+	for (i = 1; i < TAILLE_GLOBALE ; i++) { // Initialisation des autres planetes
+		planete[i].posx = (rand() % 511) + 1; // Génération d'un nombre aléatoire en 1 et 513
+		planete[i].posy = (rand() % 383) + 1;
+		planete[i].vitessex = 0;
+		planete[i].vitessey = 0;
+		planete[i].typeCorps = 1;
+		planete[i].coefMasse = 0;
+		planete[i].expMasse = 0;
+		planete[i].coefDistance = 0;
+		planete[i].expDistance = 0;
+	}
 }

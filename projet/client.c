@@ -11,6 +11,7 @@ int main(int argc, char *argv[]) {
 	int tailleTot = 0;
 	int taillePart = 0;
 	int acq = 0;
+	int i = 0;
 
 	corps *tab; // Déclaration du tableau de structure total
 	corps *tabPart; // Déclaration du tableau de structure partiel
@@ -105,7 +106,10 @@ int main(int argc, char *argv[]) {
 
 	// 8) Le client calcul et acq
 	printf ("Calculs en cours...\n");
-	// CALCULS
+	for (i = 0 ; i < taillePart ; i++) { // CALCULS
+		tabPart[i].posx += 50;
+		tabPart[i].posy += 50;
+	}
 	printf ("Calculs termines !\n");
 	printf ("Acq...\n\n");
 	acq = 1; // Mise à 1 de la variable
