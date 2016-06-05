@@ -264,7 +264,7 @@ int main(int argc, char *argv[]) {
     			printf("%s: worker %d choisi\n", CMD, ilibre);
 			nbClient++;
 			printf ("Nombre de clients : %d\n", nbClient);
-			if (nbClient >= 3) {
+			if (nbClient >= 1) {
 				printf ("Demarrage de la simulation\n\n");
 				simulationStart++;
 				nbClientSeuil = nbClient;
@@ -350,19 +350,13 @@ void *traiterRequete(void *arg) {
  		}
 
 		// 2) Le client acq	
-		if (pthread_mutex_lock(&mutex) != 0) {
-    			erreur_IO("pthread_mutex_lock");
-  		}
 		acq = 0;
 		printf ("Worker %d : Attente de l'acq...\n", data->tid);
 
 		while (acq == 0) {
-		read(data->canal, &acq, sizeof(int));
+			read(data->canal, &acq, sizeof(int));
 		}
 		acq = 0;
-  		if (pthread_mutex_unlock(&mutex) != 0) {
-    			erreur_IO("pthread_mutex_unlock");
- 		}
 		printf ("Worker %d : Acq OK\n", data->tid);
 
 		// 3) Le serveur envoie le tableau de structure
@@ -378,20 +372,14 @@ void *traiterRequete(void *arg) {
  		}
 
 		// 4) Le client acq	
-		if (pthread_mutex_lock(&mutex) != 0) {
-    			erreur_IO("pthread_mutex_lock");
-  		}
 		acq = 0;
 		printf ("Worker %d : Attente de l'acq2...\n", data->tid);
 
 		while (acq == 0) {
-		read(data->canal, &acq, sizeof(int));
+			read(data->canal, &acq, sizeof(int));
 		}
 		acq = 0;
 		printf ("Worker %d : Acq2 OK\n", data->tid);
-  		if (pthread_mutex_unlock(&mutex) != 0) {
-    			erreur_IO("pthread_mutex_unlock");
- 		}
 
 		// 5) Le serveur envoie la taille du tableau de structure à allouer
 		/*
@@ -421,20 +409,14 @@ void *traiterRequete(void *arg) {
  		}
 
 		// 6) Le client acq
-		if (pthread_mutex_lock(&mutex) != 0) {
-    			erreur_IO("pthread_mutex_lock");
-  		}
 		acq = 0;
 		printf ("Worker %d : Attente de l'acq3...\n", data->tid);
 
 		while (acq == 0) {
-		read(data->canal, &acq, sizeof(int));
+			read(data->canal, &acq, sizeof(int));
 		}
 		acq = 0;
 		printf ("Worker %d : Acq3 OK\n", data->tid);
-  		if (pthread_mutex_unlock(&mutex) != 0) {
-    			erreur_IO("pthread_mutex_unlock");
- 		}
 		
 
 		// 7) Le serveur envoie le tableau fractionné
@@ -454,20 +436,14 @@ void *traiterRequete(void *arg) {
  		}
 
 		// 8) Le client calcul et acq
-		if (pthread_mutex_lock(&mutex) != 0) {
-    			erreur_IO("pthread_mutex_lock");
-  		}
 		acq = 0;
 		printf ("Worker %d : Attente de l'acq4...\n", data->tid);
 
 		while (acq == 0) {
-		read(data->canal, &acq, sizeof(int));
+			read(data->canal, &acq, sizeof(int));
 		}
 		acq = 0;
 		printf ("Worker %d : Acq4 OK\n", data->tid);
-  		if (pthread_mutex_unlock(&mutex) != 0) {
-    			erreur_IO("pthread_mutex_unlock");
- 		}
 
 		//  9) Le client envoie les données et le serveur rassemble
 		
@@ -484,21 +460,31 @@ void *traiterRequete(void *arg) {
 		planete[i+ecart*nbClient] = tabTemp[i]; // Sauvegarde des valeurs
 		}
 
-		if (pthread_mutex_unlock(&mutex) != 0) {
-    			erreur_IO("pthread_mutex_unlock");
- 		}
+		
 		printf ("Worker %d : Reception terminee !\n", data->tid);
 
 		affichageStart++;
 
-		data->canal = -1;
-   		data->libre = VRAI;
+		if (pthread_mutex_unlock(&mutex) != 0) {
+    			erreur_IO("pthread_mutex_unlock");
+ 		}
+
+		
 
 		printf ("Worker %d : La simulation est terminee !\n", data->tid);
     		if (close(data->canal) == -1) {
       			erreur_IO("close");
-   		 }
-    		
+   		}
+		
+		if (pthread_mutex_lock(&mutex) != 0) {
+    			erreur_IO("pthread_mutex_lock");
+  		}
+
+		data->canal = -1;
+   		data->libre = VRAI;
+    		if (pthread_mutex_unlock(&mutex) != 0) {
+    			erreur_IO("pthread_mutex_unlock");
+ 		}
   	}
 	
 }
