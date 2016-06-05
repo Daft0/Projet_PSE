@@ -9,11 +9,13 @@
 #define WIDTH	       720
 #define HEIGHT	       720
 #define TAILLE_GLOBALE 5
+#define CLIENTS_MIN    2
 
 
 int nbClient = 0;
 int simulationStart = 0;
 int affichageStart = 0;
+int nbClientSeuil = -1;
 corps planete[TAILLE_GLOBALE];
 
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -35,7 +37,7 @@ int main(int argc, char *argv[]) {
 	struct sockaddr_in adrEcoute, reception;
   	socklen_t receptionlen = sizeof(reception);
   	short port;
-	int nbClientSeuil = -1;
+	
 
 	SDL_Event event;
 	int boucle = 0;
@@ -77,7 +79,7 @@ int main(int argc, char *argv[]) {
 
 	printf ("Creation du renderer...\n");
 	/* Affichage d'une image de fond en utilisant le GPU de l'ordinateur */
-	pRenderer = SDL_CreateRenderer(pWindow, -1, SDL_RENDERER_ACCELERATED); // Création d'un SDL_Renderer utilisant l'accélération matérielle
+	pRenderer = SDL_CreateRenderer(pWindow, -1, 0); // Création d'un SDL_Renderer utilisant l'accélération matérielle
 	/* SI échec lors de la création du Renderer */
 	if (pRenderer == NULL) {
 		fprintf (stdout, "Echec de creation du renderer (%s)\n", SDL_GetError());
@@ -219,17 +221,17 @@ int main(int argc, char *argv[]) {
         			case SDL_KEYUP: // Relâchement d'une touche
             			if ( event.key.keysym.sym == SDLK_q ) { // Touche s
 					printf ("L'utilisateur souhaite quitter...\n\n");
+					exit(EXIT_SUCCESS);
 					pthread_exit(NULL);
 					SDL_FreeSurface(pTitle); // Libération des ressource pour le sprite du titre
 					SDL_FreeSurface(pDone);	// Idem chargement
 					SDL_DestroyRenderer(pRenderer); // Libération de la mémoire du Renderer
         				SDL_DestroyWindow(pWindow); // Destruction de la fenêtre
 					SDL_Quit();
-        	
-					exit(EXIT_SUCCESS);				
+        					
 				}
             			break;
-    			}
+    			}	
 		}
 
 		if (affichageStart == nbClientSeuil) { // Si la simulation est terminée	
@@ -238,7 +240,6 @@ int main(int argc, char *argv[]) {
 			nbClient = 0; // Réinitialisation du nombre de clients
 			affichageStart = 0; // On ne veut plus afficher
 			affichage(); // Actualisation de l'affichage de la simulation
-			sleep(10);	
 		}
 
  
@@ -264,7 +265,7 @@ int main(int argc, char *argv[]) {
     			printf("%s: worker %d choisi\n", CMD, ilibre);
 			nbClient++;
 			printf ("Nombre de clients : %d\n", nbClient);
-			if (nbClient >= 1) {
+			if (nbClient >= CLIENTS_MIN) {
 				printf ("Demarrage de la simulation\n\n");
 				simulationStart++;
 				nbClientSeuil = nbClient;
@@ -310,17 +311,25 @@ void *traiterRequete(void *arg) {
 	corps *tab; // Tableau partiel
 	corps *tabTemp; // Tableau temporaire
 	int i = 0;
+	int etape = 0;
+	int boucle = 0;
+	int tempsPrecedent = 0, tempsActuel = 0;
 
 	
   
   	//mode = O_WRONLY|O_APPEND|O_CREAT|O_TRUNC;
 
-  	while (VRAI) {
+	while(VRAI) {
+
 		sem_wait(&data->sem);
 		data->libre = FAUX;
+
     		//printf("worker %d: lecture canal %d.\n", data->tid, data->canal);
 		while(simulationStart == 0);
 		printf ("Worker %d : La simulation demarre !\n", data->tid);
+		boucle = 0;
+		etape = 0;
+		tempsPrecedent = SDL_GetTicks();
 		/*
 		* Etapes :
 		* 1) Le serveur envoie la taille du tableau de structure à allouer
@@ -336,157 +345,189 @@ void *traiterRequete(void *arg) {
 		* 11) Retour en 1)
 		*/
 
+		while (boucle == 0) {
+			if (tempsActuel - tempsPrecedent > 5000) {/* Si 5 s se sont écoulées lors de la simulation, c'est qu'il y a eu une erreur */
+            			tempsPrecedent = tempsActuel; /* Le temps "actuel" devient le temps "precedent" pour nos futurs calculs */
+				printf ("Worker %d : TIMEOUT!\n", data->tid);
+				etape = 9;
+        		}
 
-		// 1) Le serveur envoie la taille du tableau de structure à allouer
-		if (pthread_mutex_lock(&mutex) != 0) {
-    			erreur_IO("pthread_mutex_lock");
-  		}
+			switch(etape) {
+				case 0:
+					// 1) Le serveur envoie la taille du tableau de structure à allouer
+					if (pthread_mutex_lock(&mutex) != 0) {
+			    			erreur_IO("pthread_mutex_lock");
+			  		}
 
-		printf ("Worker %d : Transmission de la taille de la structure...\n", data->tid);
-		write(data->canal, &tailleTot, sizeof(int));
-    
-  		if (pthread_mutex_unlock(&mutex) != 0) {
-    			erreur_IO("pthread_mutex_unlock");
- 		}
+					printf ("Worker %d : Transmission de la taille de la structure...\n", data->tid);
+					write(data->canal, &tailleTot, sizeof(int));
+			    
+			  		if (pthread_mutex_unlock(&mutex) != 0) {
+			    			erreur_IO("pthread_mutex_unlock");
+			 		}
+					etape++;
+					break;
 
-		// 2) Le client acq	
-		acq = 0;
-		printf ("Worker %d : Attente de l'acq...\n", data->tid);
+				case 1:
+					// 2) Le client acq	
+					acq = 0;
+					printf ("Worker %d : Attente de l'acq...\n", data->tid);
 
-		while (acq == 0) {
-			read(data->canal, &acq, sizeof(int));
-		}
-		acq = 0;
-		printf ("Worker %d : Acq OK\n", data->tid);
+					while (acq == 0) {
+						read(data->canal, &acq, sizeof(int));
+					}
+					acq = 0;
+					printf ("Worker %d : Acq OK\n", data->tid);
+					etape++;
+					break;
+				case 2:
+					// 3) Le serveur envoie le tableau de structure
+					if (pthread_mutex_lock(&mutex) != 0) {
+			    			erreur_IO("pthread_mutex_lock");
+			  		}
 
-		// 3) Le serveur envoie le tableau de structure
-		if (pthread_mutex_lock(&mutex) != 0) {
-    			erreur_IO("pthread_mutex_lock");
-  		}
+					printf ("Worker %d : Transmission du tableau global...\n", data->tid);
+					write(data->canal, &planete, TAILLE_GLOBALE*sizeof(corps));
+			    
+			  		if (pthread_mutex_unlock(&mutex) != 0) {
+			    			erreur_IO("pthread_mutex_unlock");
+			 		}
+					etape++;
+					break;
+				case 3:
+					// 4) Le client acq	
+					acq = 0;
+					printf ("Worker %d : Attente de l'acq2...\n", data->tid);
 
-		printf ("Worker %d : Transmission du tableau global...\n", data->tid);
-		write(data->canal, &planete, TAILLE_GLOBALE*sizeof(corps));
-    
-  		if (pthread_mutex_unlock(&mutex) != 0) {
-    			erreur_IO("pthread_mutex_unlock");
- 		}
-
-		// 4) Le client acq	
-		acq = 0;
-		printf ("Worker %d : Attente de l'acq2...\n", data->tid);
-
-		while (acq == 0) {
-			read(data->canal, &acq, sizeof(int));
-		}
-		acq = 0;
-		printf ("Worker %d : Acq2 OK\n", data->tid);
-
-		// 5) Le serveur envoie la taille du tableau de structure à allouer
-		/*
-		* On utilise data->tid qui est le numéro du worker
-		* On utilise nbClient qui contient le nombre de clients
-		* On calcul le nombre de cases pour chaque client
-		* LE NOMBRE DE PLANETES DOIT ETRE PAIR !
-		*/
-		if (pthread_mutex_lock(&mutex) != 0) {
-    			erreur_IO("pthread_mutex_lock");
-  		}
-		printf ("Worker %d : Preparation des valeurs...\n", data->tid);
-		ecart = TAILLE_GLOBALE/nbClient;
-		if (nbClient%2 == 1 && data->tid == nbClient-1) { // Si nombre de client impair, le dernier client prend un élément de plus
-			printf ("Worker %d : est le dernier\n", data->tid);
-			ecart += TAILLE_GLOBALE-ecart*nbClient;
-			printf ("Il a %d a faire\n", ecart);
+					while (acq == 0) {
+						read(data->canal, &acq, sizeof(int));
+					}
+					acq = 0;
+					printf ("Worker %d : Acq2 OK\n", data->tid);
+					etape++;
+					break;				
+				case 4:
+					// 5) Le serveur envoie la taille du tableau de structure à allouer
+					/*
+					* On utilise data->tid qui est le numéro du worker
+					* On utilise nbClient qui contient le nombre de clients
+					* On calcul le nombre de cases pour chaque client
+					* LE NOMBRE DE PLANETES DOIT ETRE PAIR !
+					*/
+					if (pthread_mutex_lock(&mutex) != 0) {
+			    			erreur_IO("pthread_mutex_lock");
+			  		}
+					printf ("Worker %d : Preparation des valeurs...\n", data->tid);
+					ecart = TAILLE_GLOBALE/nbClient;
+					if (nbClient%2 == 1 && data->tid == nbClient-1) { // Si nombre de client impair, le dernier client prend un élément de plus
+						printf ("Worker %d : est le dernier\n", data->tid);
+						ecart += TAILLE_GLOBALE-ecart*nbClient;
+						printf ("Il a %d a faire\n", ecart);
 			
+					}
+					printf ("%d\n", ecart);
+		
+					printf ("Worker %d : Transmission de la taille de la structure...\n", data->tid);
+					write(data->canal, &ecart, sizeof(int));
+		
+					if (pthread_mutex_unlock(&mutex) != 0) {
+			    			erreur_IO("pthread_mutex_unlock");
+			 		}
+					etape++;
+					break;
+				case 5:
+					// 6) Le client acq
+					acq = 0;
+					printf ("Worker %d : Attente de l'acq3...\n", data->tid);
+
+					while (acq == 0) {
+						read(data->canal, &acq, sizeof(int));
+					}
+					acq = 0;
+					printf ("Worker %d : Acq3 OK\n", data->tid);
+					etape++;
+					break;
+				case 6:
+					// 7) Le serveur envoie le tableau fractionné
+		
+					if (pthread_mutex_lock(&mutex) != 0) {
+			    			erreur_IO("pthread_mutex_lock");
+			  		}
+					printf ("Worker %d : Transmission du tableau partiel...\n", data->tid);
+					tab = (corps*) calloc(ecart, sizeof(corps)); // Attribution de l'espace
+					for (i = 0 ; i < ecart ; i++) {
+					tab[i] = planete[i+ecart*nbClient]; // Sauvegarde des valeurs
+					}
+					write(data->canal, &tab, ecart*sizeof(corps)); // Transfert
+
+					if (pthread_mutex_unlock(&mutex) != 0) {
+			    			erreur_IO("pthread_mutex_unlock");
+			 		}
+					etape++;
+					break;
+				case 7:
+					// 8) Le client calcul et acq
+					acq = 0;
+					printf ("Worker %d : Attente de l'acq4...\n", data->tid);
+
+					while (acq == 0) {
+						read(data->canal, &acq, sizeof(int));
+					}
+					acq = 0;
+					printf ("Worker %d : Acq4 OK\n", data->tid);
+					etape++;
+					break;
+				case 8:
+					//  9) Le client envoie les données et le serveur rassemble
+		
+					if (pthread_mutex_lock(&mutex) != 0) {
+			    			erreur_IO("pthread_mutex_lock");
+			  		}
+
+					printf ("Worker %d : Reception des donnees...\n", data->tid);
+					tabTemp = (corps*) calloc(ecart, sizeof(corps)); // Attribution de l'espace
+					while (tabTemp[0].coeffX == 0) { // Lecture des données : tant qu'il n'y a pas de modification
+						read(data->canal, tabTemp, ecart*sizeof(corps));
+					}
+					for (i = 0 ; i < ecart ; i++) {
+					planete[i+ecart*nbClient] = tabTemp[i]; // Sauvegarde des valeurs
+					}
+
+		
+					printf ("Worker %d : Reception terminee !\n", data->tid);
+
+					if (pthread_mutex_unlock(&mutex) != 0) {
+			    			erreur_IO("pthread_mutex_unlock");
+			 		}
+					etape++;
+					break;
+
+				case 9:
+					printf ("Worker %d : La simulation est terminee !\n", data->tid);
+			    		if (close(data->canal) == -1) {
+			      			erreur_IO("close");
+			   		}
+		
+					if (pthread_mutex_lock(&mutex) != 0) {
+			    			erreur_IO("pthread_mutex_lock");
+			  		}
+					affichageStart++;
+					nbClient--;
+
+			    		if (pthread_mutex_unlock(&mutex) != 0) {
+			    			erreur_IO("pthread_mutex_unlock");
+			 		}
+					boucle++;
+					break;			
+			}
 		}
-		printf ("%d\n", ecart);
-		
-		printf ("Worker %d : Transmission de la taille de la structure...\n", data->tid);
-		write(data->canal, &ecart, sizeof(int));
-		
-		if (pthread_mutex_unlock(&mutex) != 0) {
-    			erreur_IO("pthread_mutex_unlock");
- 		}
-
-		// 6) Le client acq
-		acq = 0;
-		printf ("Worker %d : Attente de l'acq3...\n", data->tid);
-
-		while (acq == 0) {
-			read(data->canal, &acq, sizeof(int));
-		}
-		acq = 0;
-		printf ("Worker %d : Acq3 OK\n", data->tid);
-		
-
-		// 7) Le serveur envoie le tableau fractionné
-		
-		if (pthread_mutex_lock(&mutex) != 0) {
-    			erreur_IO("pthread_mutex_lock");
-  		}
-		printf ("Worker %d : Transmission du tableau partiel...\n", data->tid);
-		tab = (corps*) calloc(ecart, sizeof(corps)); // Attribution de l'espace
-		for (i = 0 ; i < ecart ; i++) {
-		tab[i] = planete[i+ecart*nbClient]; // Sauvegarde des valeurs
-		}
-		write(data->canal, &tab, ecart*sizeof(corps)); // Transfert
-
-		if (pthread_mutex_unlock(&mutex) != 0) {
-    			erreur_IO("pthread_mutex_unlock");
- 		}
-
-		// 8) Le client calcul et acq
-		acq = 0;
-		printf ("Worker %d : Attente de l'acq4...\n", data->tid);
-
-		while (acq == 0) {
-			read(data->canal, &acq, sizeof(int));
-		}
-		acq = 0;
-		printf ("Worker %d : Acq4 OK\n", data->tid);
-
-		//  9) Le client envoie les données et le serveur rassemble
-		
-		if (pthread_mutex_lock(&mutex) != 0) {
-    			erreur_IO("pthread_mutex_lock");
-  		}
-
-		printf ("Worker %d : Reception des donnees...\n", data->tid);
-		tabTemp = (corps*) calloc(ecart, sizeof(corps)); // Attribution de l'espace
-		while (tabTemp[0].coeffX == 0) { // Lecture des données : tant qu'il n'y a pas de modification
-			read(data->canal, tabTemp, ecart*sizeof(corps));
-		}
-		for (i = 0 ; i < ecart ; i++) {
-		planete[i+ecart*nbClient] = tabTemp[i]; // Sauvegarde des valeurs
-		}
+		printf ("Worker %d : En attente des autres clients...\n", data->tid);
+		while (affichageStart < nbClientSeuil);
 
 		
-		printf ("Worker %d : Reception terminee !\n", data->tid);
-
-		affichageStart++;
-
-		if (pthread_mutex_unlock(&mutex) != 0) {
-    			erreur_IO("pthread_mutex_unlock");
- 		}
-
-		
-
-		printf ("Worker %d : La simulation est terminee !\n", data->tid);
-    		if (close(data->canal) == -1) {
-      			erreur_IO("close");
-   		}
-		
-		if (pthread_mutex_lock(&mutex) != 0) {
-    			erreur_IO("pthread_mutex_lock");
-  		}
-
-		data->canal = -1;
-   		data->libre = VRAI;
-    		if (pthread_mutex_unlock(&mutex) != 0) {
-    			erreur_IO("pthread_mutex_unlock");
- 		}
-  	}
-	
+	}
+	data->canal = -1;
+	data->libre = VRAI;
 }
 
 int remiseAZeroLog(int fd, int mode) {

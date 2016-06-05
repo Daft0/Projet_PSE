@@ -53,9 +53,7 @@ int main(int argc, char *argv[]) {
 	printf ("Pret pour la simulation\n");
 	// 1) Réception de la taille du tableau de structure à allouer
 	printf ("Reception de la taille du tableau global...\n");
-	//while (tailleTot == 0) {
 	read(sock, &tailleTot, sizeof(int));
-	//}
 	printf ("Je dois allouer %d octets\n\n", tailleTot);
 
 	// 2) Acq
@@ -71,9 +69,7 @@ int main(int argc, char *argv[]) {
 
 	// 3) Réception du tableau global
 	printf ("Reception du tableau global...\n");
-	//while (tab[0].coeffX == 0) {
 	read(sock, tab, tailleTot*sizeof(corps));
-	//}
 	printf ("C'est bon\n\n");
 
 	// 4) Acq2
@@ -84,9 +80,7 @@ int main(int argc, char *argv[]) {
 
 	// 5) Réception de la taille du tableau partiel de structure à allouer
 	printf ("Reception de la taille du tableau partiel\n");
-	//while (taillePart == 0) {
 	read(sock, &taillePart, sizeof(int));
-	//}
 	printf ("Je dois allouer %d octets\n\n", taillePart);
 	
 	// 6) Acq3
@@ -102,16 +96,14 @@ int main(int argc, char *argv[]) {
 
 	// 7) Réception du tableau partiel
 	printf ("Reception du tableau partiel...\n");
-	//while (tabPart[0].coeffX == 0) {
 	read(sock, tabPart, taillePart*sizeof(corps));
-	//}
 	printf ("C'est bon\n\n");
 
 	// 8) Le client calcul et acq
 	printf ("Calculs en cours...\n");
 	for (i = 0 ; i < taillePart ; i++) { // CALCULS
-		tabPart[i].coeffX += 1;
-		tabPart[i].coeffY += 1;
+		tabPart[i].coeffX += 2;
+		tabPart[i].coeffY += 2;
 	}
 	printf ("Calculs termines !\n");
 	printf ("Acq...\n\n");
@@ -126,6 +118,8 @@ int main(int argc, char *argv[]) {
 	
 	free(tab);
 	free(tabPart);
+
+	system("./client localhost 5550");
 
   	exit(EXIT_SUCCESS);
 }
