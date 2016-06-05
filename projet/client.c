@@ -102,8 +102,7 @@ int main(int argc, char *argv[]) {
 	// 8) Le client calcul et acq
 	printf ("Calculs en cours...\n");
 	for (i = 0 ; i < taillePart ; i++) { // CALCULS
-		tabPart[i].coeffX += 2;
-		tabPart[i].coeffY += 2;
+		deplacementCorps(&tabPart[i], tab, tailleTot);
 	}
 	printf ("Calculs termines !\n");
 	printf ("Acq...\n\n");
