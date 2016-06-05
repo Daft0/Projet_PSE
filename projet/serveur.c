@@ -6,9 +6,10 @@
 #define NTHREADS       10
 #define MILLISECONDES  1000
 #define ATTENTE        2000*MILLISECONDES
-#define WIDTH	       1024
-#define HEIGHT	       768
+#define WIDTH	       720
+#define HEIGHT	       720
 #define TAILLE_GLOBALE 5
+
 
 int nbClient = 0;
 int simulationStart = 0;
@@ -235,9 +236,9 @@ int main(int argc, char *argv[]) {
 			printf ("Simulation terminee\n");
 			simulationStart = 0; // Arrêt de la simulation
 			nbClient = 0; // Réinitialisation du nombre de clients
+			affichageStart = 0; // On ne veut plus afficher
 			affichage(); // Actualisation de l'affichage de la simulation
-			sleep(10);
-			exit(EXIT_SUCCESS);	
+			sleep(10);	
 		}
 
  
@@ -370,7 +371,6 @@ void *traiterRequete(void *arg) {
   		}
 
 		printf ("Worker %d : Transmission du tableau global...\n", data->tid);
-		planete[0].posx = 57;
 		write(data->canal, &planete, TAILLE_GLOBALE*sizeof(corps));
     
   		if (pthread_mutex_unlock(&mutex) != 0) {
@@ -388,10 +388,10 @@ void *traiterRequete(void *arg) {
 		read(data->canal, &acq, sizeof(int));
 		}
 		acq = 0;
+		printf ("Worker %d : Acq2 OK\n", data->tid);
   		if (pthread_mutex_unlock(&mutex) != 0) {
     			erreur_IO("pthread_mutex_unlock");
  		}
-		printf ("Worker %d : Acq2 OK\n", data->tid);
 
 		// 5) Le serveur envoie la taille du tableau de structure à allouer
 		/*
@@ -400,10 +400,10 @@ void *traiterRequete(void *arg) {
 		* On calcul le nombre de cases pour chaque client
 		* LE NOMBRE DE PLANETES DOIT ETRE PAIR !
 		*/
-		printf ("Worker %d : Preparation des valeurs...\n", data->tid);
 		if (pthread_mutex_lock(&mutex) != 0) {
     			erreur_IO("pthread_mutex_lock");
   		}
+		printf ("Worker %d : Preparation des valeurs...\n", data->tid);
 		ecart = TAILLE_GLOBALE/nbClient;
 		if (nbClient%2 == 1 && data->tid == nbClient-1) { // Si nombre de client impair, le dernier client prend un élément de plus
 			printf ("Worker %d : est le dernier\n", data->tid);
@@ -431,17 +431,18 @@ void *traiterRequete(void *arg) {
 		read(data->canal, &acq, sizeof(int));
 		}
 		acq = 0;
+		printf ("Worker %d : Acq3 OK\n", data->tid);
   		if (pthread_mutex_unlock(&mutex) != 0) {
     			erreur_IO("pthread_mutex_unlock");
  		}
-		printf ("Worker %d : Acq3 OK\n", data->tid);
+		
 
 		// 7) Le serveur envoie le tableau fractionné
-		printf ("Worker %d : Transmission du tableau partiel...\n", data->tid);
+		
 		if (pthread_mutex_lock(&mutex) != 0) {
     			erreur_IO("pthread_mutex_lock");
   		}
-
+		printf ("Worker %d : Transmission du tableau partiel...\n", data->tid);
 		tab = (corps*) calloc(ecart, sizeof(corps)); // Attribution de l'espace
 		for (i = 0 ; i < ecart ; i++) {
 		tab[i] = planete[i+ecart*nbClient]; // Sauvegarde des valeurs
@@ -463,19 +464,20 @@ void *traiterRequete(void *arg) {
 		read(data->canal, &acq, sizeof(int));
 		}
 		acq = 0;
+		printf ("Worker %d : Acq4 OK\n", data->tid);
   		if (pthread_mutex_unlock(&mutex) != 0) {
     			erreur_IO("pthread_mutex_unlock");
  		}
-		printf ("Worker %d : Acq4 OK\n", data->tid);
 
 		//  9) Le client envoie les données et le serveur rassemble
-		printf ("Worker %d : Reception des donnees...\n", data->tid);
+		
 		if (pthread_mutex_lock(&mutex) != 0) {
     			erreur_IO("pthread_mutex_lock");
   		}
 
+		printf ("Worker %d : Reception des donnees...\n", data->tid);
 		tabTemp = (corps*) calloc(ecart, sizeof(corps)); // Attribution de l'espace
-		while (tabTemp[0].posx == 0) { // Lecture des données : tant qu'il n'y a pas de modification
+		while (tabTemp[0].coeffX == 0) { // Lecture des données : tant qu'il n'y a pas de modification
 			read(data->canal, tabTemp, ecart*sizeof(corps));
 		}
 		for (i = 0 ; i < ecart ; i++) {
@@ -487,56 +489,16 @@ void *traiterRequete(void *arg) {
  		}
 		printf ("Worker %d : Reception terminee !\n", data->tid);
 
-		
-		/*
-    		printf("worker %d: attente canal.\n", data->tid);
-    		//attente canal
-    		sem_wait(&data->sem);
-    		data->libre = FAUX;
-    		printf("worker %d: lecture canal %d.\n", data->tid, data->canal);
-
-    		arret = FAUX;
-    		while (arret == FAUX) {
-     			 nblus = lireLigne (data->canal, texte);
-      			if (nblus <= 0 || nblus == LIGNE_MAX) {
-        			erreur("lireLigne\n");
-      			}
-      			if (strcmp(texte, "fin") == 0) {
-	     			printf("worker %d: deconnexion demandee.\n", data->tid);
-				nbClient--;
-	      			arret = VRAI;
-      			}
-      			else if (strcmp(texte, "calc") == 0) {
-	     		
-	     		//write(data->canal, &fun, sizeof(corps));
-	      		//read(data->canal, &fun, sizeof(corps));
-	      		//printf ("<%d>, <%d>, %d>\n", fun.posx, fun.posy, fun.vitesse);
-			write(data->canal, tab, sizeof(tab));
-      			}
-			else if (strcmp(texte, "nbClient") == 0) {
-				printf ("Il y a actuellement %d clients\n", nbClient);
-			}
-      			else if (strcmp(texte, "init") == 0) {
-	      			printf("worker %d: remise a zero du journal demandee.\n", data->tid);
-        			journal = remiseAZeroLog(journal, mode);
-	    		}
-      			else if (ecrireLigne(journal, texte) != -1) {
-	      			printf("worker %d: ligne de %d octets ecrite dans le journal.\n",data->tid, nblus);
-      			}
-      			else {
-        			erreur_IO("ecrireLigne");
-      			}
-    		}
-		*/
-
 		affichageStart++;
+
+		data->canal = -1;
+   		data->libre = VRAI;
 
 		printf ("Worker %d : La simulation est terminee !\n", data->tid);
     		if (close(data->canal) == -1) {
       			erreur_IO("close");
    		 }
-    		data->canal = -1;
-   		data->libre = VRAI;
+    		
   	}
 	
 }
@@ -558,36 +520,73 @@ void affichage() {
 	* Cette fonction permet de lire les données puis de les afficher
 	*/
 
+	double valueX = 0;
+	double valueY = 0;
+
 	printf ("Affichage...\n");
 	SDL_SetRenderDrawColor(pRenderer, 0, 0, 0, 255);
 	SDL_RenderClear(pRenderer);
+
 	
-	SDL_Surface *pSprite;
+	SDL_Surface *pSpriteSoleil;
+	SDL_Surface *pSpritePlanete;
+	SDL_Surface *pFond;
 	SDL_Texture *pTexture;
-	
-	int i = 0;
-	for (i = 0 ; i < TAILLE_GLOBALE ; i++) {
-		if (planete[i].typeCorps == 0) {
-			pSprite = SDL_LoadBMP("img/sun.bmp"); // Chargement sprite soleil
-		}
-		else {
-			pSprite = SDL_LoadBMP("img/planete.bmp"); // Chargement sprite planete
-		}
-		if (pSprite == NULL) {
+
+	pSpriteSoleil = SDL_LoadBMP("img/sun.bmp"); // Chargement du sprite soleil
+	if (pSpriteSoleil == NULL) {
 			fprintf (stdout, "Echec de chargement d'un sprite (%s)\n", SDL_GetError());
 			SDL_Quit();
 			exit(EXIT_FAILURE);
+	}
+	pSpritePlanete = SDL_LoadBMP("img/planete.bmp"); // Chargement sprite planete
+	if (pSpritePlanete == NULL) {
+			fprintf (stdout, "Echec de chargement d'un sprite (%s)\n", SDL_GetError());
+			SDL_Quit();
+			exit(EXIT_FAILURE);
+	}
+	pFond = SDL_LoadBMP("img/fond.bmp"); // Chargement sprite planete
+	if (pFond == NULL) {
+			fprintf (stdout, "Echec de chargement d'un sprite (%s)\n", SDL_GetError());
+			SDL_Quit();
+			exit(EXIT_FAILURE);
+	}
+
+	
+	
+	pTexture = SDL_CreateTextureFromSurface(pRenderer, pFond); // Préparation du sprite
+	if (pTexture == NULL) {
+			fprintf (stdout, "Echec de creation de la texture (%s)\n", SDL_GetError());
+			SDL_Quit();
+			exit(EXIT_FAILURE);
+	}
+	SDL_Rect destSprite = {0, 0, pFond->w, pFond->h}; // Destination
+	
+	SDL_RenderCopy(pRenderer, pTexture, NULL, &destSprite); // Copie de la texture
+	SDL_RenderPresent(pRenderer); // Affichage	
+
+
+	
+	int i = 0;
+	for (i = 0 ; i < TAILLE_GLOBALE ; i++) {
+		valueX = planete[i].coeffX*pow(10,planete[i].exposantX-13);
+		valueY =  planete[i].coeffY*pow(10,planete[i].exposantY-13);
+		if (planete[i].typeCorps == 0) {
+			pTexture = SDL_CreateTextureFromSurface(pRenderer, pSpriteSoleil); // Préparation du sprite
+			SDL_Rect destSprite = {(int)(valueX*WIDTH/2 + WIDTH/2), (int)(valueY*HEIGHT/2 + HEIGHT/2), pSpriteSoleil->w, pSpriteSoleil->h}; // Destination
+			SDL_RenderCopy(pRenderer, pTexture, NULL, &destSprite); // Copie de la texture
 		}
-		pTexture = SDL_CreateTextureFromSurface(pRenderer, pSprite); // Préparation du sprite
+		else {
+			pTexture = SDL_CreateTextureFromSurface(pRenderer, pSpritePlanete); // Préparation du sprite
+			SDL_Rect destSprite = {(int)(valueX*WIDTH/2 + WIDTH/2), (int)(valueY*HEIGHT/2 + HEIGHT/2), pSpritePlanete->w, pSpritePlanete->h}; // Destination
+			SDL_RenderCopy(pRenderer, pTexture, NULL, &destSprite); // Copie de la texture
+		}
 		if (pTexture == NULL) {
 			fprintf (stdout, "Echec de creation de la texture (%s)\n", SDL_GetError());
 			SDL_Quit();
 			exit(EXIT_FAILURE);
 		}
-		SDL_Rect destSprite = {planete[i].posx, planete[i].posy, pSprite->w, pSprite->h}; // Destination
-	
-		SDL_RenderCopy(pRenderer, pTexture, NULL, &destSprite); // Copie de la texture
-		SDL_RenderPresent(pRenderer); // Affichage		
+		SDL_RenderPresent(pRenderer); // Affichage	
 	}
 	printf ("OK\n");
 }
@@ -595,25 +594,24 @@ void affichage() {
 void initSimulation() {
 	/* Cette fonction permet d'initialiser les corps de la simulation */
 	int i = 1;
-	planete[0].posx = 1024/2; // Initialisation du soleil
-	planete[0].posy = 768/2;
-	planete[0].vitessex = 0;
-	planete[0].vitessey = 0;
+	planete[0].coeffX = 0; // Initialisation du soleil
+	planete[0].exposantX = 13;
+	planete[0].coeffY = 0;
+	planete[0].exposantY = 13;
+	planete[0].vitesseX = 0;
+	planete[0].vitesseY = 0;
 	planete[0].typeCorps = 0;
-	planete[0].coefMasse = 0;
-	planete[0].expMasse = 0;
-	planete[0].coefDistance = 0;
-	planete[0].expDistance = 0;
+	planete[0].coeffMasse = 1.9891;
+	planete[0].exposantMasse = 30;
 
 	for (i = 1; i < TAILLE_GLOBALE ; i++) { // Initialisation des autres planetes
-		planete[i].posx = (rand() % 511) + 1; // Génération d'un nombre aléatoire en 1 et 513
-		planete[i].posy = (rand() % 383) + 1;
-		planete[i].vitessex = 0;
-		planete[i].vitessey = 0;
+		planete[i].coeffX = (((rand() % 1999)+1)/100)-9; // Génération d'un nombre aléatoire entre 0 et 1 (float)
+		planete[i].exposantX = ((rand() % 2) + 11);
+		planete[i].coeffY = (((rand() % 1999)+1)/100)-9; // Génération d'un nombre aléatoire entre 0 et 1 (float)
+		planete[i].exposantY = ((rand() % 2) + 11);
+		miseOrbite(&planete[i], &planete[0]);
 		planete[i].typeCorps = 1;
-		planete[i].coefMasse = 0;
-		planete[i].expMasse = 0;
-		planete[i].coefDistance = 0;
-		planete[i].expDistance = 0;
+		planete[i].coeffMasse = ((rand() % 999)+1)/100;
+		planete[i].exposantMasse = ((rand() % 5) + 23);
 	}
 }

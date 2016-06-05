@@ -25,7 +25,10 @@ int main(int argc, char *argv[]) {
 	printf ("Par LASSERRE Antoine & MAESTRE Gael\n");
 	printf ("CLIENT\n");
 
-  	printf("%s: creating a socket\n", CMD);
+	
+
+
+	printf("%s: creating a socket\n", CMD);
   	sock = socket (AF_INET, SOCK_STREAM, 0);
   	if (sock < 0) {
     		erreur_IO("socket");
@@ -68,7 +71,7 @@ int main(int argc, char *argv[]) {
 
 	// 3) Réception du tableau global
 	printf ("Reception du tableau global...\n");
-	while (tab[0].posx == 0) {
+	while (tab[0].coeffX == 0) {
 		read(sock, tab, tailleTot*sizeof(corps));
 	}
 	printf ("C'est bon\n\n");
@@ -99,7 +102,7 @@ int main(int argc, char *argv[]) {
 
 	// 7) Réception du tableau partiel
 	printf ("Reception du tableau partiel...\n");
-	while (tabPart[0].posx == 0) {
+	while (tabPart[0].coeffX == 0) {
 		read(sock, tabPart, taillePart*sizeof(corps));
 	}
 	printf ("C'est bon\n\n");
@@ -107,8 +110,8 @@ int main(int argc, char *argv[]) {
 	// 8) Le client calcul et acq
 	printf ("Calculs en cours...\n");
 	for (i = 0 ; i < taillePart ; i++) { // CALCULS
-		tabPart[i].posx += 50;
-		tabPart[i].posy += 50;
+		tabPart[i].coeffX += 1;
+		tabPart[i].coeffY += 1;
 	}
 	printf ("Calculs termines !\n");
 	printf ("Acq...\n\n");
@@ -121,45 +124,9 @@ int main(int argc, char *argv[]) {
 	write(sock, tabPart, taillePart*sizeof(corps));
 	printf ("C'est bon\n\n");
 	
-	
-	
-
-
-	/*
-  	while (arret == FAUX) {
-   		printf("ligne> ");
-    		if (fgets(texte, LIGNE_MAX, stdin) == NULL) {
-     			printf("Fin de fichier (ou erreur) : arret.\n");
-      			arret = VRAI;
-      		continue;
-    		}
-    		else {
-      			nbecr = ecrireLigne(sock, texte);
-      			if (nbecr == -1) {
-				erreur_IO("ecrireLigne");
-      			}
-      			if (strcmp(texte, "fin\n") == 0) {
-				printf("Client. arret demande.\n");
-				arret = VRAI;
-      			}
-      			else if (strcmp(texte, "calc\n") == 0) {
-				read(sock, tab, sizeof(tab));
-				printf ("<%d>, <%d>, <%f>, <%d>\n<%d>, <%d>, <%f>, <%d>\n", tab[0].posx, tab[0].posy, tab[0].vitesse, tab[0].type_corps, tab[1].posx, tab[1].posy, tab[1].vitesse, tab[1].type_corps);
-				
-				//read(sock, &fun, sizeof(corps));i
-				//printf ("<%d>, <%d>, <%d>\n", fun.posx, fun.posy, fun.vitesse);
-				//fun.posx++;
-				//fun.posy++;
-				//fun.vitesse++;
-				//write(sock, &fun, sizeof(corps));
-      			}
-      			else {
-				printf("%s: ligne de %d octets envoyee au serveur.\n", CMD, nbecr);
-      			}
-    		}
-  	}*/
 	free(tab);
 	free(tabPart);
+
 
   	exit(EXIT_SUCCESS);
 }
