@@ -115,8 +115,12 @@ int main(int argc, char *argv[]) {
 	write(sock, tabPart, taillePart*sizeof(corps));
 	printf ("C'est bon\n\n");
 	
-	free(tab);
-	free(tabPart);
+	if (tab != NULL) {
+		free(tab);
+	}
+	if (tab != NULL) {
+		free(tabPart);
+	}
 
 	system("./client localhost 5550");
 

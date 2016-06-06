@@ -9,7 +9,7 @@
 #define WIDTH	       720
 #define HEIGHT	       720
 #define TAILLE_GLOBALE 5
-#define CLIENTS_MIN    2
+#define CLIENTS_MIN    1
 
 
 int nbClient = 0;
@@ -41,6 +41,8 @@ int main(int argc, char *argv[]) {
 
 	SDL_Event event;
 	int boucle = 0;
+
+	
   
   	DataSpec cohorte[NTHREADS];
 
@@ -241,55 +243,37 @@ int main(int argc, char *argv[]) {
 			affichageStart = 0; // On ne veut plus afficher
 			affichage(); // Actualisation de l'affichage de la simulation
 		}
+		if (simulationStart == 0) {
+	    		printf("%s: waiting to a connection\n", CMD);
+	    		canal = accept(ecoute, (struct sockaddr *) &reception, &receptionlen);
+	    		if (canal < 0) {
+	      			erreur_IO("accept");
+	    		}
+	    		printf("%s: adr %s, port %hu\n", CMD,
+	      		stringIP(ntohl(reception.sin_addr.s_addr)), ntohs(reception.sin_port));
 
- 
-	if (simulationStart == 0) {
-    		printf("%s: waiting to a connection\n", CMD);
-    		canal = accept(ecoute, (struct sockaddr *) &reception, &receptionlen);
-    		if (canal < 0) {
-      			erreur_IO("accept");
-    		}
-    		printf("%s: adr %s, port %hu\n", CMD,
-      		stringIP(ntohl(reception.sin_addr.s_addr)), ntohs(reception.sin_port));
+	    		ilibre = NTHREADS;
+	    		while (ilibre == NTHREADS) {
+	      			for (ilibre=0; ilibre<NTHREADS; ilibre++)
+					if (cohorte[ilibre].libre) break;
+	      				printf("serveur: %d\n", ilibre);
+	      				if (ilibre == NTHREADS) usleep(ATTENTE);
+	   			}
 
-    		ilibre = NTHREADS;
-    		while (ilibre == NTHREADS) {
-      			for (ilibre=0; ilibre<NTHREADS; ilibre++)
-        			if (cohorte[ilibre].libre) break;
-      				printf("serveur: %d\n", ilibre);
-      				if (ilibre == NTHREADS) usleep(ATTENTE);
-   			}
-
-    			cohorte[ilibre].canal = canal;
-    			sem_post(&cohorte[ilibre].sem);
-    			printf("%s: worker %d choisi\n", CMD, ilibre);
-			nbClient++;
-			printf ("Nombre de clients : %d\n", nbClient);
-			if (nbClient >= CLIENTS_MIN) {
-				printf ("Demarrage de la simulation\n\n");
-				simulationStart++;
-				nbClientSeuil = nbClient;
-				/*
-				* Etapes :
-				* 1) Le serveur envoie la taille du tableau de structure à allouer
-				* 2) Le client acq
-				* 3) Le serveur envoie le tableau global
-				* 4) Le client acq
-				* 5) Le serveur envoie la taille du tableau de structure à allouer
-				* 6) Le client acq
-				* 7) Le serveur envoie le tableau fractionné
-				* 8) Le client calcul et acq
-				* 9) Le client envoie les données et le serveur rassemble
-				* 10) Le serveur affiche les infos
-				* 11) Retour en 1)
-				*/
-			}
-			else {
-				printf ("Le nombre de clients n'est pas suffisant pour commencer la simulation\n");
-			}
-  		}
-	}
-
+	    			cohorte[ilibre].canal = canal;
+	    			sem_post(&cohorte[ilibre].sem);
+	    			printf("%s: worker %d choisi\n", CMD, ilibre);
+				nbClient++;
+				printf ("Nombre de clients : %d\n", nbClient);
+				if (nbClient >= CLIENTS_MIN) {
+					simulationStart++;
+					nbClientSeuil = nbClient;
+				}
+				else {
+					printf ("Le nombre de clients n'est pas suffisant pour commencer la simulation\n");
+				}
+	  		}
+		}
 	pthread_exit(NULL);
 	SDL_FreeSurface(pTitle); // Libération des ressource pour le sprite du titre
 	SDL_FreeSurface(pDone);	// Idem chargement
@@ -346,11 +330,15 @@ void *traiterRequete(void *arg) {
 		*/
 
 		while (boucle == 0) {
+			tempsActuel = SDL_GetTicks();
 			if (tempsActuel - tempsPrecedent > 5000) {/* Si 5 s se sont écoulées lors de la simulation, c'est qu'il y a eu une erreur */
             			tempsPrecedent = tempsActuel; /* Le temps "actuel" devient le temps "precedent" pour nos futurs calculs */
 				printf ("Worker %d : TIMEOUT!\n", data->tid);
 				etape = 9;
         		}
+			if (data->tid > nbClientSeuil) {
+				etape = 9;
+			}
 
 			switch(etape) {
 				case 0:
