@@ -8,16 +8,21 @@
 #define ATTENTE        2000*MILLISECONDES
 #define WIDTH	       720
 #define HEIGHT	       720
-#define TAILLE_GLOBALE 5
-#define CLIENTS_MIN    1
+#define TAILLE_GLOBALE 4
+#define CLIENTS_MIN    2
 
 
+/* 
+* Déclaration des variables globales
+* Elles sont utilisées dans les différents threads
+*/
 int nbClient = 0;
 int simulationStart = 0;
 int affichageStart = 0;
 int nbClientSeuil = -1;
 corps planete[TAILLE_GLOBALE];
 
+// Déclaration d'un mutex
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
 // Variables globales de la SDL
@@ -33,23 +38,21 @@ SDL_Texture *pTexture3;
 
 int main(int argc, char *argv[]) {
 
+	// Déclaration des variables du main
 	int ecoute, canal, ret, mode, ilibre, i;
 	struct sockaddr_in adrEcoute, reception;
   	socklen_t receptionlen = sizeof(reception);
   	short port;
-	
 
-	SDL_Event event;
-	int boucle = 0;
-
-	
+	SDL_Event event; // Déclaration d'une variable "évenement"
+	int boucle = 0;	
   
-  	DataSpec cohorte[NTHREADS];
+  	DataSpec cohorte[NTHREADS]; // Cohorte
 
-	srand (time (NULL));
+	srand (time (NULL)); // Initialisation du temps (pour la génération de nombres aléatoire)
 
 
-  	if (argc != 2) {
+  	if (argc != 2) { // SI le nombre d'arguments n'est pas correct
     		erreur("usage: %s port\n", argv[0]);
  	}
 
@@ -223,14 +226,13 @@ int main(int argc, char *argv[]) {
         			case SDL_KEYUP: // Relâchement d'une touche
             			if ( event.key.keysym.sym == SDLK_q ) { // Touche s
 					printf ("L'utilisateur souhaite quitter...\n\n");
-					exit(EXIT_SUCCESS);
-					pthread_exit(NULL);
+					
 					SDL_FreeSurface(pTitle); // Libération des ressource pour le sprite du titre
 					SDL_FreeSurface(pDone);	// Idem chargement
 					SDL_DestroyRenderer(pRenderer); // Libération de la mémoire du Renderer
         				SDL_DestroyWindow(pWindow); // Destruction de la fenêtre
 					SDL_Quit();
-        					
+        				exit(EXIT_SUCCESS);	
 				}
             			break;
     			}	
@@ -242,6 +244,18 @@ int main(int argc, char *argv[]) {
 			nbClient = 0; // Réinitialisation du nombre de clients
 			affichageStart = 0; // On ne veut plus afficher
 			affichage(); // Actualisation de l'affichage de la simulation
+			/* réinitialisation cohorte */
+		  	for (i=0; i<NTHREADS; i++) {
+		    		cohorte[i].tid = i;
+		    		cohorte[i].libre = VRAI;
+		    		/* une valeur -1 indique pas de requete a traiter */
+		    		cohorte[i].canal = -1;
+		    		sem_init(&cohorte[i].sem,0,0); // Initialisation de chaque sémaphore
+		    		ret = pthread_create(&cohorte[i].id, NULL, traiterRequete, &cohorte[i]);
+		    		if (ret != 0) {
+		      			erreur_IO("pthread_create");
+		    	}
+  	}	
 		}
 		if (simulationStart == 0) {
 	    		printf("%s: waiting to a connection\n", CMD);
@@ -265,9 +279,12 @@ int main(int argc, char *argv[]) {
 	    			printf("%s: worker %d choisi\n", CMD, ilibre);
 				nbClient++;
 				printf ("Nombre de clients : %d\n", nbClient);
+				sem_wait(&cohorte[ilibre].sem);
+				cohorte[ilibre].libre = FAUX;
 				if (nbClient >= CLIENTS_MIN) {
-					simulationStart++;
+					printf ("La simulation demarre !\n\n");
 					nbClientSeuil = nbClient;
+					simulationStart = 1;
 				}
 				else {
 					printf ("Le nombre de clients n'est pas suffisant pour commencer la simulation\n");
@@ -303,10 +320,10 @@ void *traiterRequete(void *arg) {
   
   	//mode = O_WRONLY|O_APPEND|O_CREAT|O_TRUNC;
 
-	while(VRAI) {
+	//while(VRAI) {
 
-		sem_wait(&data->sem);
-		data->libre = FAUX;
+		//sem_wait(&data->sem);
+		//data->libre = FAUX;
 
     		//printf("worker %d: lecture canal %d.\n", data->tid, data->canal);
 		while(simulationStart == 0);
@@ -336,10 +353,6 @@ void *traiterRequete(void *arg) {
 				printf ("Worker %d : TIMEOUT!\n", data->tid);
 				etape = 9;
         		}
-			if (data->tid > nbClientSeuil) {
-				etape = 9;
-			}
-
 			switch(etape) {
 				case 0:
 					// 1) Le serveur envoie la taille du tableau de structure à allouer
@@ -474,9 +487,7 @@ void *traiterRequete(void *arg) {
 
 					printf ("Worker %d : Reception des donnees...\n", data->tid);
 					tabTemp = (corps*) calloc(ecart, sizeof(corps)); // Attribution de l'espace
-					while (tabTemp[0].coeffX == 0) { // Lecture des données : tant qu'il n'y a pas de modification
-						read(data->canal, tabTemp, ecart*sizeof(corps));
-					}
+					read(data->canal, tabTemp, ecart*sizeof(corps));
 					for (i = 0 ; i < ecart ; i++) {
 					planete[i+ecart*nbClient] = tabTemp[i]; // Sauvegarde des valeurs
 					}
@@ -500,7 +511,6 @@ void *traiterRequete(void *arg) {
 			    			erreur_IO("pthread_mutex_lock");
 			  		}
 					affichageStart++;
-					nbClient--;
 
 			    		if (pthread_mutex_unlock(&mutex) != 0) {
 			    			erreur_IO("pthread_mutex_unlock");
@@ -511,11 +521,13 @@ void *traiterRequete(void *arg) {
 		}
 		printf ("Worker %d : En attente des autres clients...\n", data->tid);
 		while (affichageStart < nbClientSeuil);
-
+		nbClient--;
 		
-	}
+	//}
 	data->canal = -1;
 	data->libre = VRAI;
+	pthread_exit(NULL);
+	
 }
 
 int remiseAZeroLog(int fd, int mode) {
@@ -578,7 +590,6 @@ void affichage() {
 	SDL_Rect destSprite = {0, 0, pFond->w, pFond->h}; // Destination
 	
 	SDL_RenderCopy(pRenderer, pTexture, NULL, &destSprite); // Copie de la texture
-	SDL_RenderPresent(pRenderer); // Affichage	
 
 
 	
@@ -601,8 +612,9 @@ void affichage() {
 			SDL_Quit();
 			exit(EXIT_FAILURE);
 		}
-		SDL_RenderPresent(pRenderer); // Affichage	
+			
 	}
+	SDL_RenderPresent(pRenderer); // Affichage
 	printf ("OK\n");
 }
 

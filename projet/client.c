@@ -114,13 +114,14 @@ int main(int argc, char *argv[]) {
 	printf ("Transmission des donnees...\n");
 	write(sock, tabPart, taillePart*sizeof(corps));
 	printf ("C'est bon\n\n");
-	
+
+	/*
 	if (tab != NULL) {
 		free(tab);
 	}
-	if (tab != NULL) {
+	if (tabPart != NULL) {
 		free(tabPart);
-	}
+	}*/
 
 	system("./client localhost 5550");
 
