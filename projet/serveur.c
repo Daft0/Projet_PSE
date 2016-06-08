@@ -390,7 +390,7 @@ void *traiterRequete(void *arg) {
 			  		}
 
 					fprintf (journal, "Worker %d : Transmission du tableau global...\n", data->tid);
-					write(data->canal, &planete, TAILLE_GLOBALE*sizeof(corps)); // Transmission du tableau de structure
+					write(data->canal, planete, TAILLE_GLOBALE*sizeof(corps)); // Transmission du tableau de structure
 			    
 			  		if (pthread_mutex_unlock(&mutex) != 0) {
 			    			erreur_IO("pthread_mutex_unlock");
@@ -426,7 +426,7 @@ void *traiterRequete(void *arg) {
 						fprintf (journal, "Worker %d Il a %d a faire\n", data->tid, ecart);
 			
 						int ecartTemp = ecart + 1;
-						fprintf (journal, "Il a %d donnees a calculer\n", data->tid, ecart);
+						fprintf (journal, "Il a %d donnees a calculer\n", data->tid);
 						fprintf (journal, "Worker %d : %d\n", data->tid, ecart);
 						fprintf (journal, "Worker %d : Transmission de la taille de la structure...\n", data->tid);
 						write(data->canal, &ecartTemp, sizeof(int));
@@ -467,7 +467,7 @@ void *traiterRequete(void *arg) {
 						for (i = 0 ; i < ecart+1 ; i++) {
 						tab[i] = planete[i+ecart*data->tid]; // Sauvegarde des valeurs
 						}
-						write(data->canal, &tab, (ecart+1)*sizeof(corps)); // Transfert
+						write(data->canal, tab, (ecart+1)*sizeof(corps)); // Transfert
 					}
 					else
 					{
@@ -475,7 +475,7 @@ void *traiterRequete(void *arg) {
 						for (i = 0 ; i < ecart ; i++) {
 						tab[i] = planete[i+ecart*data->tid]; // Sauvegarde des valeurs
 						}
-						write(data->canal, &tab, ecart*sizeof(corps)); // Transfert
+						write(data->canal, tab, ecart*sizeof(corps)); // Transfert
 					}
 
 					if (pthread_mutex_unlock(&mutex) != 0) {
