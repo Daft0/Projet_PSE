@@ -59,7 +59,7 @@ int main(int argc, char *argv[]) {
 
 	// 2) Acq
 	printf ("Allocation en cours...\n");
-	tab = (corps*) calloc(tailleTot, sizeof(corps));
+	tab = (corps*) calloc(tailleTot+1, sizeof(corps));
 	if (tab == NULL) {
 		exit(EXIT_FAILURE);
 	}	
@@ -86,7 +86,7 @@ int main(int argc, char *argv[]) {
 	
 	// 6) Acq3
 	printf ("Allocation en cours...\n");
-	tabPart = (corps*) calloc(taillePart, sizeof(corps));
+	tabPart = (corps*) calloc(taillePart+1, sizeof(corps));
 	if (tabPart == NULL) {
 		exit(EXIT_FAILURE);
 	}	
@@ -116,21 +116,24 @@ int main(int argc, char *argv[]) {
 	write(sock, tabPart, taillePart*sizeof(corps));
 	printf ("C'est bon\n\n");
 
-	/*
+	
 	if (tab != NULL) {
 		free(tab);
 	}
 	if (tabPart != NULL) {
 		free(tabPart);
-	}*/
+	}
 
+	
   	strcat(commande, argv[0]);
   	strcat(commande, " ");
   	strcat(commande, argv[1]);
 	strcat(commande, " ");
 	strcat(commande, argv[2]);
 	printf ("%s\n", commande);
-	system(commande);
-
+	//system(commande);
+	
+	execv("client", argv);
+	
   	exit(EXIT_SUCCESS);
 }
