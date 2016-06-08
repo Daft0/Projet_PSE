@@ -12,6 +12,7 @@ int main(int argc, char *argv[]) {
 	int taillePart = 0;
 	int acq = 0;
 	int i = 0;
+	char commande[100];
 
 	corps *tab; // Déclaration du tableau de structure total
 	corps *tabPart; // Déclaration du tableau de structure partiel
@@ -123,7 +124,13 @@ int main(int argc, char *argv[]) {
 		free(tabPart);
 	}*/
 
-	system("./client localhost 5550");
+  	strcat(commande, argv[0]);
+  	strcat(commande, " ");
+  	strcat(commande, argv[1]);
+	strcat(commande, " ");
+	strcat(commande, argv[2]);
+	printf ("%s\n", commande);
+	system(commande);
 
   	exit(EXIT_SUCCESS);
 }
