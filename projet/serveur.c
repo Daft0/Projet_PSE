@@ -8,7 +8,7 @@
 #define ATTENTE        2000*MILLISECONDES
 #define WIDTH	       720
 #define HEIGHT	       720
-#define TAILLE_GLOBALE 4
+#define TAILLE_GLOBALE 5000
 #define CLIENTS_MIN    2
 
 
@@ -318,7 +318,7 @@ void *traiterRequete(void *arg) {
   	//int arret = FAUX, nblus;
 	//int mode;
   	//char texte[LIGNE_MAX];
-	int tailleTot = 5;
+	int tailleTot = TAILLE_GLOBALE;
 	int acq = 0;
 	int ecart = 0;
 	corps *tab; // Tableau partiel
@@ -423,15 +423,21 @@ void *traiterRequete(void *arg) {
 					ecart = TAILLE_GLOBALE/nbClient;
 					if (nbClient%2 == 1 && data->tid == nbClient-1) { // Si nombre de client impair, le dernier client prend un élément de plus
 						fprintf (journal, "Worker %d : est le dernier\n", data->tid);
-						ecart += TAILLE_GLOBALE-ecart*nbClient;
 						fprintf (journal, "Worker %d Il a %d a faire\n", data->tid, ecart);
 			
+						int ecartTemp = ecart + 1;
+						printf ("Il a %d donnees a calculer\n", ecartTemp);
+						write(data->canal, &ecartTemp, sizeof(int));
 					}
 					fprintf (journal, "Worker %d : %d\n", data->tid, ecart);
 		
 					fprintf (journal, "Worker %d : Transmission de la taille de la structure...\n", data->tid);
 					write(data->canal, &ecart, sizeof(int));
 		
+					else {
+						write(data->canal, &ecart, sizeof(int));
+					}
+					
 					if (pthread_mutex_unlock(&mutex) != 0) {
 			    			erreur_IO("pthread_mutex_unlock");
 			 		}
