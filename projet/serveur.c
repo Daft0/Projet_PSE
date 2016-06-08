@@ -74,7 +74,7 @@ int main(int argc, char *argv[]) {
 	printf ("Veuillez consulter le journal pour avoir des informations\n");
 
 	fprintf (journal, "Simulation spatiale par calculs distribués\n");
-	fprintf (journal, "Par LASSERRE Antoine et MAESTRE Gaël\n");
+	fprintf (journal, "Par LASSERRE Antoine et MAESTRE Gaël\n\n");
 
 	fprintf (journal, "Chargement :\n");
 		
@@ -184,7 +184,7 @@ int main(int argc, char *argv[]) {
   	}
   
   	adrEcoute.sin_family = AF_INET; // Préparation de l'écoute
- 	 adrEcoute.sin_addr.s_addr = INADDR_ANY;
+ 	adrEcoute.sin_addr.s_addr = INADDR_ANY;
   	adrEcoute.sin_port = htons(port);
   	printf("%s: binding to INADDR_ANY address on port %d\n", CMD, port);
 	fprintf(journal, "%s: binding to INADDR_ANY address on port %d\n", CMD, port);
@@ -194,7 +194,7 @@ int main(int argc, char *argv[]) {
   	}
   
   	fprintf (journal, "Ecoute...\n");
-  	ret = listen (ecoute, 20);
+  	ret = listen (ecoute, 20); // Lancement de l'écoute
   	if (ret < 0) {
     		erreur_IO("listen");
   	}
@@ -215,7 +215,7 @@ int main(int argc, char *argv[]) {
     			switch(event.type) {
         			case SDL_KEYUP: // Relâchement d'une touche
             			if ( event.key.keysym.sym == SDLK_s ) { // Touche s
-					boucle++;
+					boucle++; // On sort de la boucle
 					printf ("OK\n\n");
 				}
             			break;
@@ -223,8 +223,8 @@ int main(int argc, char *argv[]) {
 		}
 	}
 
-	initSimulation();
-	affichage();
+	initSimulation(); // Initialisation des différentes planètes
+	affichage(); // Affichage
 
 	printf ("Le serveur est pret et attend 2 clients pour demarrer...\n");
 
@@ -240,8 +240,8 @@ int main(int argc, char *argv[]) {
 					SDL_FreeSurface(pDone);	// Idem chargement
 					SDL_DestroyRenderer(pRenderer); // Libération de la mémoire du Renderer
         				SDL_DestroyWindow(pWindow); // Destruction de la fenêtre
-					SDL_Quit();
-        				exit(EXIT_SUCCESS);	
+					SDL_Quit(); // Fermeture de la SDL
+        				exit(EXIT_SUCCESS); // Fermeture du programme	
 				}
             			break;
     			}	
@@ -271,7 +271,7 @@ int main(int argc, char *argv[]) {
 		}
 		if (simulationStart == 0) { // Si la simulation n'est pas en cours
 	    		fprintf(journal, "%s: waiting to a connection\n", CMD); // Attente de connexions
-	    		canal = accept(ecoute, (struct sockaddr *) &reception, &receptionlen);
+	    		canal = accept(ecoute, (struct sockaddr *) &reception, &receptionlen); // Dès qu'une connexion est acceptée
 	    		if (canal < 0) {
 	      			erreur_IO("accept");
 	    		}
@@ -289,14 +289,14 @@ int main(int argc, char *argv[]) {
 	    			cohorte[ilibre].canal = canal;
 	    			sem_post(&cohorte[ilibre].sem);
 	    			fprintf(journal, "%s: worker %d choisi\n", CMD, ilibre);
-				nbClient++;
+				nbClient++; // Un nouveau client est disponible
 				fprintf (journal, "Nombre de clients : %d\n", nbClient);
 				sem_wait(&cohorte[ilibre].sem);
 				cohorte[ilibre].libre = FAUX;
 				if (nbClient >= CLIENTS_MIN) { // Si le nombre de clients est suffisant, alors on commence la simulation
 					fprintf (journal, "La simulation demarre !\n\n");
-					nbClientSeuil = nbClient;
-					simulationStart = 1;
+					nbClientSeuil = nbClient; // Définition du seuil
+					simulationStart = 1; // Flag de démarrage de la simulation
 				}
 				else {
 					fprintf (journal, "Le nombre de clients n'est pas suffisant pour commencer la simulation\n");
@@ -540,10 +540,10 @@ void affichage() {
 	double valueY = 0;
 
 	fprintf (journal, "Affichage...\n");
-	SDL_SetRenderDrawColor(pRenderer, 0, 0, 0, 255);
-	SDL_RenderClear(pRenderer);
+	SDL_SetRenderDrawColor(pRenderer, 0, 0, 0, 255); // Affichage d'un fond noir
+	SDL_RenderClear(pRenderer); // Actualisation du renderer
 
-	
+	// Déclaration des sprites
 	SDL_Surface *pSpriteSoleil;
 	SDL_Surface *pSpritePlanete;
 	SDL_Surface *pFond;
@@ -584,9 +584,9 @@ void affichage() {
 	
 	int i = 0;
 	for (i = 0 ; i < TAILLE_GLOBALE ; i++) {
-		valueX = planete[i].coeffX*pow(10,planete[i].exposantX-13);
-		valueY =  planete[i].coeffY*pow(10,planete[i].exposantY-13);
-		if (planete[i].typeCorps == 0) {
+		valueX = planete[i].coeffX*pow(10,planete[i].exposantX-13); // Calcul de la position en adaptant à la fenêtre
+		valueY =  planete[i].coeffY*pow(10,planete[i].exposantY-13); // Idem
+		if (planete[i].typeCorps == 0) { // Si c'est un soleil
 			pTexture = SDL_CreateTextureFromSurface(pRenderer, pSpriteSoleil); // Préparation du sprite
 			SDL_Rect destSprite = {(int)(valueX*WIDTH/2 + WIDTH/2), (int)(valueY*HEIGHT/2 + HEIGHT/2), pSpriteSoleil->w, pSpriteSoleil->h}; // Destination
 			SDL_RenderCopy(pRenderer, pTexture, NULL, &destSprite); // Copie de la texture
@@ -617,7 +617,7 @@ void initSimulation() {
 	planete[0].vitesseX = 0;
 	planete[0].vitesseY = 0;
 	planete[0].typeCorps = 0;
-	planete[0].coeffMasse = 1.9891;
+	planete[0].coeffMasse = 1.9891; // Masse du soleil
 	planete[0].exposantMasse = 30;
 
 	for (i = 1; i < TAILLE_GLOBALE ; i++) { // Initialisation des autres planetes
