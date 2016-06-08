@@ -3,13 +3,13 @@
 #include <SDL2/SDL.h>
 
 #define CMD            "serveur"
-#define NTHREADS       2
+#define NTHREADS       3
 #define MILLISECONDES  1000
 #define ATTENTE        2000*MILLISECONDES
 #define WIDTH	       720
 #define HEIGHT	       720
-#define TAILLE_GLOBALE 5000
-#define CLIENTS_MIN    2
+#define TAILLE_GLOBALE 7
+#define CLIENTS_MIN    3
 
 
 /* 
@@ -247,7 +247,7 @@ int main(int argc, char *argv[]) {
     			}	
 		}
 
-		if (affichageStart == nbClientSeuil) { // Si la simulation est terminée	
+		if (affichageStart == nbClientSeuil && tours < 300) { // Si la simulation est terminée	
 			fprintf (journal, "Simulation terminee\n");
 			tours++;
 			printf ("Tours de simulation effectues : %d\n", tours);
@@ -267,9 +267,9 @@ int main(int argc, char *argv[]) {
 		    		if (ret != 0) {
 		      			erreur_IO("pthread_create");
 		    	}
-  	}	
+			}	
 		}
-		if (simulationStart == 0) { // Si la simulation n'est pas en cours
+		if (simulationStart == 0 && tours < 300) { // Si la simulation n'est pas en cours
 	    		fprintf(journal, "%s: waiting to a connection\n", CMD); // Attente de connexions
 	    		canal = accept(ecoute, (struct sockaddr *) &reception, &receptionlen); // Dès qu'une connexion est acceptée
 	    		if (canal < 0) {
@@ -426,17 +426,17 @@ void *traiterRequete(void *arg) {
 						fprintf (journal, "Worker %d Il a %d a faire\n", data->tid, ecart);
 			
 						int ecartTemp = ecart + 1;
-						printf ("Il a %d donnees a calculer\n", ecartTemp);
+						fprintf (journal, "Il a %d donnees a calculer\n", data->tid, ecart);
+						fprintf (journal, "Worker %d : %d\n", data->tid, ecart);
+						fprintf (journal, "Worker %d : Transmission de la taille de la structure...\n", data->tid);
 						write(data->canal, &ecartTemp, sizeof(int));
 					}
-					fprintf (journal, "Worker %d : %d\n", data->tid, ecart);
-		
-					fprintf (journal, "Worker %d : Transmission de la taille de la structure...\n", data->tid);
-					write(data->canal, &ecart, sizeof(int));
-		
 					else {
+						fprintf (journal, "Worker %d : %d\n", data->tid, ecart);
+						fprintf (journal, "Worker %d : Transmission de la taille de la structure...\n", data->tid);
 						write(data->canal, &ecart, sizeof(int));
 					}
+					
 					
 					if (pthread_mutex_unlock(&mutex) != 0) {
 			    			erreur_IO("pthread_mutex_unlock");
@@ -462,11 +462,21 @@ void *traiterRequete(void *arg) {
 			    			erreur_IO("pthread_mutex_lock");
 			  		}
 					fprintf (journal, "Worker %d : Transmission du tableau partiel...\n", data->tid);
-					tab = (corps*) calloc(ecart, sizeof(corps)); // Attribution de l'espace
-					for (i = 0 ; i < ecart ; i++) {
-					tab[i] = planete[i+ecart*nbClient]; // Sauvegarde des valeurs
+					if (nbClient%2 == 1 && data->tid == nbClient-1) {
+						tab = (corps*) calloc(ecart+1, sizeof(corps)); // Attribution de l'espace
+						for (i = 0 ; i < ecart+1 ; i++) {
+						tab[i] = planete[i+ecart*data->tid]; // Sauvegarde des valeurs
+						}
+						write(data->canal, &tab, (ecart+1)*sizeof(corps)); // Transfert
 					}
-					write(data->canal, &tab, ecart*sizeof(corps)); // Transfert
+					else
+					{
+						tab = (corps*) calloc(ecart, sizeof(corps)); // Attribution de l'espace
+						for (i = 0 ; i < ecart ; i++) {
+						tab[i] = planete[i+ecart*data->tid]; // Sauvegarde des valeurs
+						}
+						write(data->canal, &tab, ecart*sizeof(corps)); // Transfert
+					}
 
 					if (pthread_mutex_unlock(&mutex) != 0) {
 			    			erreur_IO("pthread_mutex_unlock");
@@ -493,10 +503,20 @@ void *traiterRequete(void *arg) {
 			  		}
 
 					fprintf (journal, "Worker %d : Reception des donnees...\n", data->tid);
-					tabTemp = (corps*) calloc(ecart, sizeof(corps)); // Attribution de l'espace
-					read(data->canal, tabTemp, ecart*sizeof(corps));
-					for (i = 0 ; i < ecart ; i++) {
-					planete[i+ecart*nbClient] = tabTemp[i]; // Sauvegarde des valeurs
+					if (nbClient%2 == 1 && data->tid == nbClient-1) {
+						tabTemp = (corps*) calloc(ecart+1, sizeof(corps)); // Attribution de l'espace
+						read(data->canal, tabTemp, (ecart+1)*sizeof(corps));
+						for (i = 0 ; i < ecart+1 ; i++) {
+						planete[i+ecart*data->tid] = tabTemp[i]; // Sauvegarde des valeurs
+						}
+					}
+					else
+					{
+						tabTemp = (corps*) calloc(ecart, sizeof(corps)); // Attribution de l'espace
+						read(data->canal, tabTemp, (ecart)*sizeof(corps));
+						for (i = 0 ; i < ecart+1 ; i++) {
+						planete[i+ecart*data->tid] = tabTemp[i]; // Sauvegarde des valeurs
+						}
 					}
 
 		
