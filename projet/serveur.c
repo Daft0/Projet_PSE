@@ -3,7 +3,7 @@
 #include <SDL2/SDL.h>
 
 #define CMD            "serveur"
-#define NTHREADS       10
+#define NTHREADS       2
 #define MILLISECONDES  1000
 #define ATTENTE        2000*MILLISECONDES
 #define WIDTH	       720
@@ -21,6 +21,7 @@ int simulationStart = 0;
 int affichageStart = 0;
 int nbClientSeuil = -1;
 corps planete[TAILLE_GLOBALE];
+FILE *journal;
 
 // Déclaration d'un mutex
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -39,10 +40,11 @@ SDL_Texture *pTexture3;
 int main(int argc, char *argv[]) {
 
 	// Déclaration des variables du main
-	int ecoute, canal, ret, mode, ilibre, i;
+	int ecoute, canal, ret, ilibre, i;
 	struct sockaddr_in adrEcoute, reception;
   	socklen_t receptionlen = sizeof(reception);
   	short port;
+	int tours = 0;
 
 	SDL_Event event; // Déclaration d'une variable "évenement"
 	int boucle = 0;	
@@ -63,16 +65,27 @@ int main(int argc, char *argv[]) {
 	printf ("Par LASSERRE Antoine & MAESTRE Gael\n");
 	printf ("SERVEUR\n");
 
-	printf ("Chargement :\n");
+	printf ("Preparation du journal...\n");
+  	journal = fopen("journal.log", "a");
+  	if (journal == NULL) {
+    		erreur_IO("open journal");
+  	}
+	
+	printf ("Veuillez consulter le journal pour avoir des informations\n");
+
+	fprintf (journal, "Simulation spatiale par calculs distribués\n");
+	fprintf (journal, "Par LASSERRE Antoine et MAESTRE Gaël\n");
+
+	fprintf (journal, "Chargement :\n");
 		
 
-	printf ("Initialisation de la SDL...\n");
+	fprintf (journal, "Initialisation de la SDL...\n");
 	/* Initialisation simple */
     	if (SDL_Init(SDL_INIT_VIDEO) != 0 ) {
         	fprintf(stdout,"Échec de l'initialisation de la SDL (%s)\n",SDL_GetError());
         	exit(EXIT_FAILURE);
     	}
-	printf ("Creation de la fenetre...\n");
+	fprintf (journal, "Creation de la fenetre...\n");
 	/* Création de la fenêtre */
         pWindow = SDL_CreateWindow("Simulation spatiale par calculs distribués",SDL_WINDOWPOS_UNDEFINED,SDL_WINDOWPOS_UNDEFINED,WIDTH,HEIGHT,SDL_WINDOW_SHOWN);
 
@@ -82,7 +95,7 @@ int main(int argc, char *argv[]) {
 		exit(EXIT_FAILURE);
 	}
 
-	printf ("Creation du renderer...\n");
+	fprintf (journal, "Creation du renderer...\n");
 	/* Affichage d'une image de fond en utilisant le GPU de l'ordinateur */
 	pRenderer = SDL_CreateRenderer(pWindow, -1, 0); // Création d'un SDL_Renderer utilisant l'accélération matérielle
 	/* SI échec lors de la création du Renderer */
@@ -92,7 +105,7 @@ int main(int argc, char *argv[]) {
 		exit(EXIT_FAILURE);		
 	}
 	
-	printf ("Chargement des textures...\n");
+	fprintf (journal, "Chargement des textures...\n");
 	pTitle = SDL_LoadBMP("img/title.bmp"); // Chargement de l'écran titre
 	pLoad = SDL_LoadBMP("img/chargement.bmp"); // Chargement du logo chargement
 	pDone = SDL_LoadBMP("img/done.bmp"); // Chargement du logo chargement
@@ -116,7 +129,7 @@ int main(int argc, char *argv[]) {
 		exit(EXIT_FAILURE);
 	}
 
-	printf ("Traitement des textures...\n");
+	fprintf (journal, "Traitement des textures...\n");
 	pTexture = SDL_CreateTextureFromSurface(pRenderer, pTitle); // Préparation du sprite 1
 	if (pTexture == NULL) {
 		fprintf (stdout, "Echec de creation de la texture (%s)\n", SDL_GetError());
@@ -139,7 +152,7 @@ int main(int argc, char *argv[]) {
 	}
 
 
-	printf ("Preparation de l'affichage...\n");
+	fprintf (journal, "Preparation de l'affichage...\n");
 	SDL_Rect dest = {WIDTH/2 - pTitle->w/2, HEIGHT/2 - pTitle->h/2, pTitle->w, pTitle->h}; // Destination 1 (Fond de base chargement)
 	SDL_Rect dest2 = {WIDTH/2 - pLoad->w/2, HEIGHT/2 - pLoad->h/2, pLoad->w, pLoad->h}; // Logo chargement
 	SDL_Rect dest3 = {WIDTH/2 - pDone->w/2, HEIGHT/2 - pDone->h/2+40, pDone->w, pDone->h}; // Logo fin de chargement
@@ -147,17 +160,10 @@ int main(int argc, char *argv[]) {
 	SDL_RenderCopy(pRenderer, pTexture, NULL, &dest); // Copie du titre grâce à SDL_Renderer
 	SDL_RenderCopy(pRenderer, pTexture2, NULL, &dest2); // Copie du chargement grâce à SDL_Renderer
 
-	printf ("Affichage...\n");
+	fprintf (journal, "Affichage...\n");
 	SDL_RenderPresent(pRenderer); // Affichage
 
-	printf ("Preparation du journal...\n");
-  	mode = O_WRONLY|O_APPEND|O_CREAT;
-  	journal = open("journal.log", mode, 0660);
-  	if (journal == -1) {
-    		erreur_IO("open journal");
-  	}
-
-	printf ("Initialisation cohorte...\n");
+	fprintf (journal, "Initialisation cohorte...\n");
   	/* initialisation cohorte */
   	for (i=0; i<NTHREADS; i++) {
     		cohorte[i].tid = i;
@@ -171,7 +177,7 @@ int main(int argc, char *argv[]) {
     		}
   	}
   
-  	printf("Creation d'un socket...\n");
+  	fprintf(journal, "Creation d'un socket...\n");
   	ecoute = socket (AF_INET, SOCK_STREAM, 0);
   	if (ecoute < 0) {
     		erreur_IO("socket");
@@ -181,12 +187,13 @@ int main(int argc, char *argv[]) {
  	 adrEcoute.sin_addr.s_addr = INADDR_ANY;
   	adrEcoute.sin_port = htons(port);
   	printf("%s: binding to INADDR_ANY address on port %d\n", CMD, port);
+	fprintf(journal, "%s: binding to INADDR_ANY address on port %d\n", CMD, port);
   	ret = bind (ecoute,  (struct sockaddr *) &adrEcoute, sizeof(adrEcoute));
   	if (ret < 0) {
     		erreur_IO("bind");
   	}
   
-  	printf ("Ecoute...\n");
+  	fprintf (journal, "Ecoute...\n");
   	ret = listen (ecoute, 20);
   	if (ret < 0) {
     		erreur_IO("listen");
@@ -199,7 +206,7 @@ int main(int argc, char *argv[]) {
 	SDL_RenderPresent(pRenderer); // Affichage
 
 
-	printf ("Chargement termine !\n");
+	fprintf (journal, "Chargement termine !\n");
 	printf ("En attente d'un appui sur la touche <s>...\n");
 	/* Attente de l'appui sur s */
 	while (boucle == 0) {
@@ -219,14 +226,16 @@ int main(int argc, char *argv[]) {
 	initSimulation();
 	affichage();
 
+	printf ("Le serveur est pret et attend 2 clients pour demarrer...\n");
+
   	while (VRAI) {
 		while (SDL_PollEvent(&event)) // Récupération des actions de l'utilisateur
 		{
     			switch(event.type) {
         			case SDL_KEYUP: // Relâchement d'une touche
             			if ( event.key.keysym.sym == SDLK_q ) { // Touche s
+					fprintf (journal, "L'utilisateur souhaite quitter...");
 					printf ("L'utilisateur souhaite quitter...\n\n");
-					
 					SDL_FreeSurface(pTitle); // Libération des ressource pour le sprite du titre
 					SDL_FreeSurface(pDone);	// Idem chargement
 					SDL_DestroyRenderer(pRenderer); // Libération de la mémoire du Renderer
@@ -239,7 +248,10 @@ int main(int argc, char *argv[]) {
 		}
 
 		if (affichageStart == nbClientSeuil) { // Si la simulation est terminée	
-			printf ("Simulation terminee\n");
+			fprintf (journal, "Simulation terminee\n");
+			tours++;
+			printf ("Tours de simulation effectues : %d\n", tours);
+			fprintf (journal, "Tours de simulation effectués : %d\n", tours);
 			simulationStart = 0; // Arrêt de la simulation
 			nbClient = 0; // Réinitialisation du nombre de clients
 			affichageStart = 0; // On ne veut plus afficher
@@ -258,36 +270,36 @@ int main(int argc, char *argv[]) {
   	}	
 		}
 		if (simulationStart == 0) {
-	    		printf("%s: waiting to a connection\n", CMD);
+	    		fprintf(journal, "%s: waiting to a connection\n", CMD);
 	    		canal = accept(ecoute, (struct sockaddr *) &reception, &receptionlen);
 	    		if (canal < 0) {
 	      			erreur_IO("accept");
 	    		}
-	    		printf("%s: adr %s, port %hu\n", CMD,
+	    		fprintf(journal, "%s: adr %s, port %hu\n", CMD,
 	      		stringIP(ntohl(reception.sin_addr.s_addr)), ntohs(reception.sin_port));
 
 	    		ilibre = NTHREADS;
 	    		while (ilibre == NTHREADS) {
 	      			for (ilibre=0; ilibre<NTHREADS; ilibre++)
 					if (cohorte[ilibre].libre) break;
-	      				printf("serveur: %d\n", ilibre);
+	      				fprintf(journal, "serveur: %d\n", ilibre);
 	      				if (ilibre == NTHREADS) usleep(ATTENTE);
 	   			}
 
 	    			cohorte[ilibre].canal = canal;
 	    			sem_post(&cohorte[ilibre].sem);
-	    			printf("%s: worker %d choisi\n", CMD, ilibre);
+	    			fprintf(journal, "%s: worker %d choisi\n", CMD, ilibre);
 				nbClient++;
-				printf ("Nombre de clients : %d\n", nbClient);
+				fprintf (journal, "Nombre de clients : %d\n", nbClient);
 				sem_wait(&cohorte[ilibre].sem);
 				cohorte[ilibre].libre = FAUX;
 				if (nbClient >= CLIENTS_MIN) {
-					printf ("La simulation demarre !\n\n");
+					fprintf (journal, "La simulation demarre !\n\n");
 					nbClientSeuil = nbClient;
 					simulationStart = 1;
 				}
 				else {
-					printf ("Le nombre de clients n'est pas suffisant pour commencer la simulation\n");
+					fprintf (journal, "Le nombre de clients n'est pas suffisant pour commencer la simulation\n");
 				}
 	  		}
 		}
@@ -327,7 +339,7 @@ void *traiterRequete(void *arg) {
 
     		//printf("worker %d: lecture canal %d.\n", data->tid, data->canal);
 		while(simulationStart == 0);
-		printf ("Worker %d : La simulation demarre !\n", data->tid);
+		fprintf (journal, "Worker %d : La simulation demarre !\n", data->tid);
 		boucle = 0;
 		etape = 0;
 		tempsPrecedent = SDL_GetTicks();
@@ -350,7 +362,7 @@ void *traiterRequete(void *arg) {
 			tempsActuel = SDL_GetTicks();
 			if (tempsActuel - tempsPrecedent > 5000) {/* Si 5 s se sont écoulées lors de la simulation, c'est qu'il y a eu une erreur */
             			tempsPrecedent = tempsActuel; /* Le temps "actuel" devient le temps "precedent" pour nos futurs calculs */
-				printf ("Worker %d : TIMEOUT!\n", data->tid);
+				fprintf (journal, "Worker %d : TIMEOUT!\n", data->tid);
 				etape = 9;
         		}
 			switch(etape) {
@@ -360,7 +372,7 @@ void *traiterRequete(void *arg) {
 			    			erreur_IO("pthread_mutex_lock");
 			  		}
 
-					printf ("Worker %d : Transmission de la taille de la structure...\n", data->tid);
+					fprintf (journal, "Worker %d : Transmission de la taille de la structure...\n", data->tid);
 					write(data->canal, &tailleTot, sizeof(int));
 			    
 			  		if (pthread_mutex_unlock(&mutex) != 0) {
@@ -372,13 +384,13 @@ void *traiterRequete(void *arg) {
 				case 1:
 					// 2) Le client acq	
 					acq = 0;
-					printf ("Worker %d : Attente de l'acq...\n", data->tid);
+					fprintf (journal, "Worker %d : Attente de l'acq...\n", data->tid);
 
 					while (acq == 0) {
 						read(data->canal, &acq, sizeof(int));
 					}
 					acq = 0;
-					printf ("Worker %d : Acq OK\n", data->tid);
+					fprintf (journal, "Worker %d : Acq OK\n", data->tid);
 					etape++;
 					break;
 				case 2:
@@ -387,7 +399,7 @@ void *traiterRequete(void *arg) {
 			    			erreur_IO("pthread_mutex_lock");
 			  		}
 
-					printf ("Worker %d : Transmission du tableau global...\n", data->tid);
+					fprintf (journal, "Worker %d : Transmission du tableau global...\n", data->tid);
 					write(data->canal, &planete, TAILLE_GLOBALE*sizeof(corps));
 			    
 			  		if (pthread_mutex_unlock(&mutex) != 0) {
@@ -398,13 +410,13 @@ void *traiterRequete(void *arg) {
 				case 3:
 					// 4) Le client acq	
 					acq = 0;
-					printf ("Worker %d : Attente de l'acq2...\n", data->tid);
+					fprintf (journal, "Worker %d : Attente de l'acq2...\n", data->tid);
 
 					while (acq == 0) {
 						read(data->canal, &acq, sizeof(int));
 					}
 					acq = 0;
-					printf ("Worker %d : Acq2 OK\n", data->tid);
+					fprintf (journal, "Worker %d : Acq2 OK\n", data->tid);
 					etape++;
 					break;				
 				case 4:
@@ -418,17 +430,17 @@ void *traiterRequete(void *arg) {
 					if (pthread_mutex_lock(&mutex) != 0) {
 			    			erreur_IO("pthread_mutex_lock");
 			  		}
-					printf ("Worker %d : Preparation des valeurs...\n", data->tid);
+					fprintf (journal, "Worker %d : Preparation des valeurs...\n", data->tid);
 					ecart = TAILLE_GLOBALE/nbClient;
 					if (nbClient%2 == 1 && data->tid == nbClient-1) { // Si nombre de client impair, le dernier client prend un élément de plus
-						printf ("Worker %d : est le dernier\n", data->tid);
+						fprintf (journal, "Worker %d : est le dernier\n", data->tid);
 						ecart += TAILLE_GLOBALE-ecart*nbClient;
-						printf ("Il a %d a faire\n", ecart);
+						fprintf (journal, "Worker %d Il a %d a faire\n", data->tid, ecart);
 			
 					}
-					printf ("%d\n", ecart);
+					fprintf (journal, "Worker %d : %d\n", data->tid, ecart);
 		
-					printf ("Worker %d : Transmission de la taille de la structure...\n", data->tid);
+					fprintf (journal, "Worker %d : Transmission de la taille de la structure...\n", data->tid);
 					write(data->canal, &ecart, sizeof(int));
 		
 					if (pthread_mutex_unlock(&mutex) != 0) {
@@ -439,13 +451,13 @@ void *traiterRequete(void *arg) {
 				case 5:
 					// 6) Le client acq
 					acq = 0;
-					printf ("Worker %d : Attente de l'acq3...\n", data->tid);
+					fprintf (journal, "Worker %d : Attente de l'acq3...\n", data->tid);
 
 					while (acq == 0) {
 						read(data->canal, &acq, sizeof(int));
 					}
 					acq = 0;
-					printf ("Worker %d : Acq3 OK\n", data->tid);
+					fprintf (journal, "Worker %d : Acq3 OK\n", data->tid);
 					etape++;
 					break;
 				case 6:
@@ -454,7 +466,7 @@ void *traiterRequete(void *arg) {
 					if (pthread_mutex_lock(&mutex) != 0) {
 			    			erreur_IO("pthread_mutex_lock");
 			  		}
-					printf ("Worker %d : Transmission du tableau partiel...\n", data->tid);
+					fprintf (journal, "Worker %d : Transmission du tableau partiel...\n", data->tid);
 					tab = (corps*) calloc(ecart, sizeof(corps)); // Attribution de l'espace
 					for (i = 0 ; i < ecart ; i++) {
 					tab[i] = planete[i+ecart*nbClient]; // Sauvegarde des valeurs
@@ -469,13 +481,13 @@ void *traiterRequete(void *arg) {
 				case 7:
 					// 8) Le client calcul et acq
 					acq = 0;
-					printf ("Worker %d : Attente de l'acq4...\n", data->tid);
+					fprintf (journal, "Worker %d : Attente de l'acq4...\n", data->tid);
 
 					while (acq == 0) {
 						read(data->canal, &acq, sizeof(int));
 					}
 					acq = 0;
-					printf ("Worker %d : Acq4 OK\n", data->tid);
+					fprintf (journal, "Worker %d : Acq4 OK\n", data->tid);
 					etape++;
 					break;
 				case 8:
@@ -485,7 +497,7 @@ void *traiterRequete(void *arg) {
 			    			erreur_IO("pthread_mutex_lock");
 			  		}
 
-					printf ("Worker %d : Reception des donnees...\n", data->tid);
+					fprintf (journal, "Worker %d : Reception des donnees...\n", data->tid);
 					tabTemp = (corps*) calloc(ecart, sizeof(corps)); // Attribution de l'espace
 					read(data->canal, tabTemp, ecart*sizeof(corps));
 					for (i = 0 ; i < ecart ; i++) {
@@ -493,7 +505,7 @@ void *traiterRequete(void *arg) {
 					}
 
 		
-					printf ("Worker %d : Reception terminee !\n", data->tid);
+					fprintf (journal, "Worker %d : Reception terminee !\n", data->tid);
 
 					if (pthread_mutex_unlock(&mutex) != 0) {
 			    			erreur_IO("pthread_mutex_unlock");
@@ -502,7 +514,7 @@ void *traiterRequete(void *arg) {
 					break;
 
 				case 9:
-					printf ("Worker %d : La simulation est terminee !\n", data->tid);
+					fprintf (journal, "Worker %d : La simulation est terminee !\n", data->tid);
 			    		if (close(data->canal) == -1) {
 			      			erreur_IO("close");
 			   		}
@@ -519,7 +531,7 @@ void *traiterRequete(void *arg) {
 					break;			
 			}
 		}
-		printf ("Worker %d : En attente des autres clients...\n", data->tid);
+		fprintf (journal, "Worker %d : En attente des autres clients...\n", data->tid);
 		while (affichageStart < nbClientSeuil);
 		nbClient--;
 		
@@ -530,18 +542,6 @@ void *traiterRequete(void *arg) {
 	
 }
 
-int remiseAZeroLog(int fd, int mode) {
-  	int newFd;
-  	if (close(fd) == -1) {
-    		erreur_IO("close log");
-  	}
-  	newFd = open("journal.log", mode|O_TRUNC, 0660);
-  	if (newFd == -1) {
-   		 erreur_IO("open trunc log");
-  	}
-  	return newFd;
-}
-
 void affichage() {
 	/*
 	* Cette fonction permet de lire les données puis de les afficher
@@ -550,7 +550,7 @@ void affichage() {
 	double valueX = 0;
 	double valueY = 0;
 
-	printf ("Affichage...\n");
+	fprintf (journal, "Affichage...\n");
 	SDL_SetRenderDrawColor(pRenderer, 0, 0, 0, 255);
 	SDL_RenderClear(pRenderer);
 
@@ -615,7 +615,7 @@ void affichage() {
 			
 	}
 	SDL_RenderPresent(pRenderer); // Affichage
-	printf ("OK\n");
+	fprintf (journal, "OK\n");
 }
 
 void initSimulation() {
