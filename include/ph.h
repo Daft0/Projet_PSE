@@ -2,15 +2,16 @@
 #define PROJECT_HEADER_H
 
 typedef struct {
-	float coeffX;
+	double coeffX;
 	int exposantX;
-	float coeffY;
+	double coeffY;
 	int exposantY;
 	double vitesseX;
 	double vitesseY;
 	int typeCorps;
-	float coeffMasse;
+	double coeffMasse;
 	int exposantMasse;
+	int idAstre;
 }corps;
 
 /* Traite des requêtes */
@@ -26,9 +27,9 @@ void initSimulation();
 int minimum(int x, int y);
 int signe(int x);
 double calculTheta(double coeffX, int exposantX, double coeffY, int exposantY);
-void projectionXY(double* vitesseX, double* vitesseY, double theta, double valeur, float coeffX, float coeffY);
-void calculDistance(float * coeffResult, int * exposantResult, float coeffX, int exposantX, float coeffY, int exposantY);
-void calculVecteur(float * coeffResult, int * exposantResult, float coeffDepart, int exposantDepart, float coeffArrivee, int exposantArrivee);
+void projectionXY(double* vitesseX, double* vitesseY, double theta, double valeur, double coeffX, double coeffY);
+void calculDistance(double * coeffResult, int * exposantResult, double coeffX, int exposantX, double coeffY, int exposantY);
+void calculVecteur(double * coeffResult, int * exposantResult, double coeffDepart, int exposantDepart, double coeffArrivee, int exposantArrivee);
 void deplacementCorps(corps * corpsCible, corps * listeCorps, int nbreCorps);
 void miseOrbite(corps * corpsCible, corps * soleilSysteme);
 

@@ -103,7 +103,10 @@ int main(int argc, char *argv[]) {
 	// 8) Le client calcul et acq
 	printf ("Calculs en cours...\n");
 	for (i = 0 ; i < taillePart ; i++) { // CALCULS
+	printf("\nAvant : %d : %.20lf *10^%i : %.20lf *10^%i\n", i, tabPart[i].coeffX, tabPart[i].exposantX, tabPart[i].coeffY, tabPart[i].exposantY);
 		deplacementCorps(&tabPart[i], tab, tailleTot);
+	printf("Après : %d : %.20lf *10^%i : %.20lf *10^%i\n\n", i, tabPart[i].coeffX, tabPart[i].exposantX, tabPart[i].coeffY, tabPart[i].exposantY);
+
 	}
 	printf ("Calculs termines !\n");
 	printf ("Acq...\n\n");

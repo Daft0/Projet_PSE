@@ -8,8 +8,9 @@
 #define ATTENTE        2000*MILLISECONDES
 #define WIDTH	       720
 #define HEIGHT	       720
-#define TAILLE_GLOBALE 7
+#define TAILLE_GLOBALE 8
 #define CLIENTS_MIN    3
+#define NBRE_TOUR_MAX	50
 
 
 /* 
@@ -247,7 +248,7 @@ int main(int argc, char *argv[]) {
     			}	
 		}
 
-		if (affichageStart == nbClientSeuil && tours < 300) { // Si la simulation est terminée	
+		if (affichageStart == nbClientSeuil && tours < NBRE_TOUR_MAX) { // Si la simulation est terminée	
 			fprintf (journal, "Simulation terminee\n");
 			tours++;
 			printf ("Tours de simulation effectues : %d\n", tours);
@@ -269,7 +270,7 @@ int main(int argc, char *argv[]) {
 		    	}
 			}	
 		}
-		if (simulationStart == 0 && tours < 300) { // Si la simulation n'est pas en cours
+		if (simulationStart == 0 && tours < NBRE_TOUR_MAX) { // Si la simulation n'est pas en cours
 	    		fprintf(journal, "%s: waiting to a connection\n", CMD); // Attente de connexions
 	    		canal = accept(ecoute, (struct sockaddr *) &reception, &receptionlen); // Dès qu'une connexion est acceptée
 	    		if (canal < 0) {
@@ -321,6 +322,7 @@ void *traiterRequete(void *arg) {
 	int tailleTot = TAILLE_GLOBALE;
 	int acq = 0;
 	int ecart = 0;
+	int octetEnvoyer = 0;
 	corps *tab; // Tableau partiel
 	corps *tabTemp; // Tableau temporaire
 	int i = 0;
@@ -421,20 +423,24 @@ void *traiterRequete(void *arg) {
 			  		}
 					fprintf (journal, "Worker %d : Preparation des valeurs...\n", data->tid);
 					ecart = TAILLE_GLOBALE/nbClient;
-					if (nbClient%2 == 1 && data->tid == nbClient-1) { // Si nombre de client impair, le dernier client prend un élément de plus
+					if (TAILLE_GLOBALE%nbClient != 0 && data->tid == nbClient-1) { // Si nombre de client impair, le dernier client prend un élément de plus
+						octetEnvoyer = TAILLE_GLOBALE - ecart * data->tid;
 						fprintf (journal, "Worker %d : est le dernier\n", data->tid);
-						fprintf (journal, "Worker %d Il a %d a faire\n", data->tid, ecart);
+						fprintf (journal, "Worker %d Il a %d a faire\n", data->tid, octetEnvoyer);
 			
-						int ecartTemp = ecart + 1;
+						
+						//for (i=0; i<TAILLE_GLOBALE; i++)
+						//	printf("%d : %lf *10^%i : %lf *10^%i\n", i, planete[i].coeffX, planete[i].exposantX, planete[i].coeffY, planete[i].exposantY);
 						fprintf (journal, "Il a %d donnees a calculer\n", data->tid);
 						fprintf (journal, "Worker %d : %d\n", data->tid, ecart);
 						fprintf (journal, "Worker %d : Transmission de la taille de la structure...\n", data->tid);
-						write(data->canal, &ecartTemp, sizeof(int));
+						write(data->canal, &octetEnvoyer, sizeof(int));
 					}
 					else {
+						octetEnvoyer = ecart;
 						fprintf (journal, "Worker %d : %d\n", data->tid, ecart);
 						fprintf (journal, "Worker %d : Transmission de la taille de la structure...\n", data->tid);
-						write(data->canal, &ecart, sizeof(int));
+						write(data->canal, &octetEnvoyer, sizeof(int));
 					}
 					
 					
@@ -462,20 +468,24 @@ void *traiterRequete(void *arg) {
 			    			erreur_IO("pthread_mutex_lock");
 			  		}
 					fprintf (journal, "Worker %d : Transmission du tableau partiel...\n", data->tid);
-					if (nbClient%2 == 1 && data->tid == nbClient-1) {
-						tab = (corps*) calloc(ecart+1, sizeof(corps)); // Attribution de l'espace
-						for (i = 0 ; i < ecart+1 ; i++) {
-						tab[i] = planete[i+ecart*data->tid]; // Sauvegarde des valeurs
+					if (TAILLE_GLOBALE%nbClient != 0 && data->tid == nbClient-1) {
+						tab = (corps*) calloc(octetEnvoyer, sizeof(corps)); // Attribution de l'espace
+						for (i = 0 ; i < octetEnvoyer ; i++) {
+						//printf("%d : %lf *10^%i : %lf *10^%i\n", i, planete[i].coeffX, planete[i].exposantX, planete[i].coeffY, planete[i].exposantY);
+						//printf("affichage de %d + %d * %d\n", i, ecart, data->tid);
+							tab[i] = planete[i + TAILLE_GLOBALE - octetEnvoyer]; // Sauvegarde des valeurs
 						}
-						write(data->canal, tab, (ecart+1)*sizeof(corps)); // Transfert
+						write(data->canal, tab, (octetEnvoyer)*sizeof(corps)); // Transfert
 					}
 					else
 					{
-						tab = (corps*) calloc(ecart, sizeof(corps)); // Attribution de l'espace
-						for (i = 0 ; i < ecart ; i++) {
+						tab = (corps*) calloc(octetEnvoyer, sizeof(corps)); // Attribution de l'espace
+						for (i = 0 ; i < octetEnvoyer ; i++) {
+						//printf("%d : %lf *10^%i : %lf *10^%i\n", i, planete[i].coeffX, planete[i].exposantX, planete[i].coeffY, planete[i].exposantY);
+						//printf("affichage de %d + %d * %d\n", i, ecart, data->tid);
 						tab[i] = planete[i+ecart*data->tid]; // Sauvegarde des valeurs
 						}
-						write(data->canal, tab, ecart*sizeof(corps)); // Transfert
+						write(data->canal, tab, octetEnvoyer*sizeof(corps)); // Transfert
 					}
 
 					if (pthread_mutex_unlock(&mutex) != 0) {
@@ -504,17 +514,17 @@ void *traiterRequete(void *arg) {
 
 					fprintf (journal, "Worker %d : Reception des donnees...\n", data->tid);
 					if (nbClient%2 == 1 && data->tid == nbClient-1) {
-						tabTemp = (corps*) calloc(ecart+1, sizeof(corps)); // Attribution de l'espace
-						read(data->canal, tabTemp, (ecart+1)*sizeof(corps));
-						for (i = 0 ; i < ecart+1 ; i++) {
-						planete[i+ecart*data->tid] = tabTemp[i]; // Sauvegarde des valeurs
+						tabTemp = (corps*) calloc(octetEnvoyer, sizeof(corps)); // Attribution de l'espace
+						read(data->canal, tabTemp, (octetEnvoyer)*sizeof(corps));
+						for (i = 0 ; i < octetEnvoyer ; i++) {
+						planete[i+TAILLE_GLOBALE - octetEnvoyer] = tabTemp[i]; // Sauvegarde des valeurs
 						}
 					}
 					else
 					{
-						tabTemp = (corps*) calloc(ecart, sizeof(corps)); // Attribution de l'espace
-						read(data->canal, tabTemp, (ecart)*sizeof(corps));
-						for (i = 0 ; i < ecart+1 ; i++) {
+						tabTemp = (corps*) calloc(octetEnvoyer+1, sizeof(corps)); // Attribution de l'espace
+						read(data->canal, tabTemp, octetEnvoyer*sizeof(corps));
+						for (i = 0 ; i < octetEnvoyer ; i++) {
 						planete[i+ecart*data->tid] = tabTemp[i]; // Sauvegarde des valeurs
 						}
 					}
@@ -546,6 +556,10 @@ void *traiterRequete(void *arg) {
 					break;			
 			}
 		}
+		if(tab != NULL)
+			free(tab);
+		if (tabTemp != NULL)
+			free(tabTemp);
 		fprintf (journal, "Worker %d : En attente des autres clients...\n", data->tid);
 		while (affichageStart < nbClientSeuil);
 		nbClient--;
@@ -645,15 +659,17 @@ void initSimulation() {
 	planete[0].typeCorps = 0;
 	planete[0].coeffMasse = 1.9891; // Masse du soleil
 	planete[0].exposantMasse = 30;
+	planete[0].idAstre = 0;
 
 	for (i = 1; i < TAILLE_GLOBALE ; i++) { // Initialisation des autres planetes
-		planete[i].coeffX = (((rand() % 1999)+1)/100)-9; // Génération d'un nombre aléatoire entre 0 et 1 (float)
+		planete[i].coeffX = ((double)((rand() % 1999)+1)/100)-9; // Génération d'un nombre aléatoire entre 0 et 1 (double)
 		planete[i].exposantX = ((rand() % 2) + 11);
-		planete[i].coeffY = (((rand() % 1999)+1)/100)-9; // Génération d'un nombre aléatoire entre 0 et 1 (float)
+		planete[i].coeffY = ((double)((rand() % 1999)+1)/100)-9; // Génération d'un nombre aléatoire entre 0 et 1 (double)
 		planete[i].exposantY = ((rand() % 2) + 11);
 		miseOrbite(&planete[i], &planete[0]);
 		planete[i].typeCorps = 1;
-		planete[i].coeffMasse = ((rand() % 999)+1)/100;
+		planete[i].coeffMasse = (double)((rand() % 999)+1)/100;
 		planete[i].exposantMasse = ((rand() % 5) + 23);
+		planete[i].idAstre = i;
 	}
 }
