@@ -10,7 +10,7 @@
 #define HEIGHT	       720
 #define TAILLE_GLOBALE 8
 #define CLIENTS_MIN    3
-#define NBRE_TOUR_MAX	50
+#define NBRE_TOUR_MAX	300
 
 
 /* 
